@@ -12,7 +12,6 @@ import (
 )
 
 const LenID = 32
-const Version = "p1.1"
 
 const StorageOptionConcat = "concat"
 const StorageOptionSingle = "single_file"
