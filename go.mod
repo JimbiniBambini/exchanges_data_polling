@@ -1,5 +1,6 @@
 module data_polling
 
+// +heroku goVersion go1.14      <--add to
 go 1.14
 
 require (
