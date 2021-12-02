@@ -24,53 +24,6 @@ import (
 /* Various Config Structs */
 
 /* ************************************************ STORJ ************************************************ */
-type AccessCredentialsStorj struct {
-	sateliteKey string
-	apiKey      string
-	rootPhrase  string
-	Version     string
-}
-
-/* Constructor */
-func NewAccessCredentialsStorj() *AccessCredentialsStorj {
-	type ConfInternal struct {
-		SateliteKey string `json:"satelite_key"`
-		ApiKey      string `json:"api_key"`
-		RootPhrase  string `json:"root_phrase"`
-		Version     string `json:"version"`
-	}
-	type ConfOuter struct {
-		Config ConfInternal `json:"config"`
-	}
-	var confTmp ConfOuter
-
-	absPath, _ := filepath.Abs("../config/config_storj.json")
-	file, _ := os.Open(absPath)
-	defer file.Close()
-
-	fmt.Println(absPath)
-	bytes, _ := ioutil.ReadAll(file)
-
-	json.Unmarshal(bytes, &confTmp)
-
-	return &AccessCredentialsStorj{
-		sateliteKey: confTmp.Config.SateliteKey,
-		apiKey:      confTmp.Config.ApiKey,
-		rootPhrase:  confTmp.Config.RootPhrase,
-		Version:     confTmp.Config.Version}
-}
-
-func (confStorj *AccessCredentialsStorj) GetSateliteKey() string {
-	return confStorj.sateliteKey
-}
-
-func (confStorj *AccessCredentialsStorj) GetApiKey() string {
-	return confStorj.apiKey
-}
-
-func (confStorj *AccessCredentialsStorj) GetRootPhrase() string {
-	return confStorj.rootPhrase
-}
 
 /* ************************************************ EXCHANGES ************************************************ */
 type ExchangeConfig struct {
@@ -85,7 +38,7 @@ type ExchangeConfig struct {
 func NewExchangeConfig(exchangeName string) *ExchangeConfig {
 	var config ExchangeConfig
 	var confTmp map[string]ExchangeConfig
-	absPath, _ := filepath.Abs("../config/config_exchanges.json")
+	absPath, _ := filepath.Abs("config/config_exchanges.json")
 	file, _ := os.Open(absPath)
 	defer file.Close()
 

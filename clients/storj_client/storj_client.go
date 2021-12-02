@@ -3,18 +3,67 @@ package storj_client
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 
-	"data_polling/config"
-
 	"storj.io/uplink"
 )
+
+const LenID = 32
+const Version = "d1.1"
 
 const StorageOptionConcat = "concat"
 const StorageOptionSingle = "single_file"
 const StorjKeySeparator = "/"
+
+type AccessCredentialsStorj struct {
+	sateliteKey string
+	apiKey      string
+	rootPhrase  string
+	version     string
+}
+
+/* Constructor */
+func NewAccessCredentialsStorj(data []byte) *AccessCredentialsStorj {
+	type ConfInternal struct {
+		SateliteKey string `json:"satelite_key"`
+		ApiKey      string `json:"api_key"`
+		RootPhrase  string `json:"root_phrase"`
+		Version     string `json:"version"`
+	}
+	var confTmp ConfInternal
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	err := decoder.Decode(&confTmp)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return &AccessCredentialsStorj{
+		sateliteKey: confTmp.SateliteKey,
+		apiKey:      confTmp.ApiKey,
+		rootPhrase:  confTmp.RootPhrase,
+		version:     confTmp.Version}
+}
+
+func (credentials AccessCredentialsStorj) GetStorjClient(ctx context.Context) StorjClient {
+	var client StorjClient
+	if client.accessProjectMUX(ctx, credentials.sateliteKey, credentials.apiKey, credentials.rootPhrase, credentials.version) {
+
+		client.GetAllBucketsAndObjects(ctx)
+
+		//ChecksumIEEE([]byte(credentials.sateliteKey + credentials.apiKey + credentials.rootPhrase + credentials.version))
+		// log.Println(client)
+		return client
+	} else {
+		return StorjClient{
+			Project: nil,
+			Buckets: nil,
+			Version: "error"}
+	}
+}
 
 type StorjClient struct {
 	Project *uplink.Project
@@ -22,24 +71,30 @@ type StorjClient struct {
 	Version string
 }
 
-func (self *StorjClient) AccessProject(ctx context.Context, accessData *config.AccessCredentialsStorj) {
-
-	access, err := uplink.RequestAccessWithPassphrase(ctx, accessData.GetSateliteKey(), accessData.GetApiKey(), accessData.GetRootPhrase())
+func (self *StorjClient) accessProjectMUX(ctx context.Context, sateliteKey string, apiKey string, rootPhrase string, version string) bool {
+	success := true
+	access, err := uplink.RequestAccessWithPassphrase(ctx, sateliteKey, apiKey, rootPhrase)
 	if err != nil {
 		fmt.Println(err)
+		success = false
 	}
 
-	project, err := uplink.OpenProject(ctx, access)
-	if err != nil {
-		fmt.Println(err)
-		self.Project = nil
+	if success {
+		project, err := uplink.OpenProject(ctx, access)
+		if err != nil {
+			fmt.Println(err)
+			self.Project = nil
+		} else {
+			self.Project = project
+		}
+
+		self.Version = version
+
+		defer project.Close()
 	} else {
-		self.Project = project
+		success = false
 	}
-
-	self.Version = accessData.Version
-
-	defer project.Close()
+	return success
 }
 
 func (self *StorjClient) GetAllBucketsAndObjects(ctx context.Context) {
