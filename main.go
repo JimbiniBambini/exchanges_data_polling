@@ -13,6 +13,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -352,7 +353,6 @@ func (clientManager *ClientManager) workerManager(w http.ResponseWriter, r *http
 }
 
 func main() {
-
 	clientManager := NewClientManager()
 
 	assetMapping = make(map[string]map[string]map[string]string)
@@ -382,7 +382,12 @@ func main() {
 		makeInitialSingleFileUpload(ctx, &clientTmp, "btc", "usd", "kraken", 1, "/Users/Slava/SW_Projects/git/PrivateProjects/trading_pattern_bot/csv_data/exchange_api_data/kraken/1/xbtusd")
 	})
 
-	http.ListenAndServe(":8088", r)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8088" // Default port if not specified
+	}
+
+	http.ListenAndServe(":"+port, r)
 
 	// ADD PROPER CONFIG FOR ASSETS
 	// ADD CONCAT-FILE ROUTINE AND A BUCKET FOR IT
