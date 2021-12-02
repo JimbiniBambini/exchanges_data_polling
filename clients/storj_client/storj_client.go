@@ -115,7 +115,9 @@ type Bucket struct {
 
 func (self *Bucket) GetAllObjects(ctx context.Context, project *uplink.Project) {
 	buketObj := make([]uplink.Object, 0)
-	objects := project.ListObjects(ctx, self.Key, project.SetOptionRecursive(true))
+
+	objects := project.ListObjects(ctx, self.Key, &uplink.ListObjectsOptions{Recursive: true})
+	//objects := project.ListObjects(ctx, self.Key, project.SetOptionRecursive(true))
 	for objects.Next() {
 		buketObj = append(buketObj, *objects.Item())
 	}
