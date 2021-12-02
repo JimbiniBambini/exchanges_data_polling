@@ -292,6 +292,7 @@ func (clientManager *ClientManager) loginManager(w http.ResponseWriter, r *http.
 					storjClient: newClient,
 					workers:     make(map[string]AssetWorker, 0),
 				}
+				log.Println("new_client_id:", newID)
 				json.NewEncoder(w).Encode(RespFrame{NewID: newID})
 			} else {
 				json.NewEncoder(w).Encode(RespFrame{NewID: "wrong_credentials"})
@@ -327,18 +328,16 @@ func (clientManager *ClientManager) workerManager(w http.ResponseWriter, r *http
 					break
 				}
 			}
-			log.Println("Already available:", alreadyAvailable)
-			log.Println("BodyHandler:", bodyHandler)
+
 			if !alreadyAvailable {
 				var worker AssetWorker
 				decoder := json.NewDecoder(bytes.NewReader(body))
 				err = decoder.Decode(&worker)
 				worker.ID = newID
 				clientManager.clients[bodyHandler["client_id"]].workers[newID] = worker
-				fmt.Println("Worker:", worker)
-				fmt.Println("Worker run:", worker.Run)
-
+				log.Println("new_worker_id:", newID)
 				if worker.Run {
+					log.Println("worker_start:", newID, worker.Asset, worker.Fiat, worker.Exchange, worker.Period)
 					go func() {
 						clientManager.clients[bodyHandler["client_id"]].workers[newID].perform(16200, clientManager.clients[bodyHandler["client_id"]].storjClient)
 					}()
