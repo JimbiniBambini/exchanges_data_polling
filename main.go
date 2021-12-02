@@ -340,7 +340,7 @@ func (clientManager *ClientManager) workerManager(w http.ResponseWriter, r *http
 
 				if worker.Run {
 					go func() {
-						clientManager.clients[bodyHandler["client_id"]].workers[newID].perform(60, clientManager.clients[bodyHandler["client_id"]].storjClient)
+						clientManager.clients[bodyHandler["client_id"]].workers[newID].perform(16200, clientManager.clients[bodyHandler["client_id"]].storjClient)
 					}()
 				}
 			}
