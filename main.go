@@ -348,7 +348,8 @@ func (clientManager *ClientManager) workerManager(w http.ResponseWriter, r *http
 				if worker.Run {
 					log.Println("worker_start:", newID, worker.Asset, worker.Fiat, worker.Exchange, worker.Period)
 					go func() {
-						clientManager.clients[bodyHandler["client_id"]].workers[newID].perform(60, clientManager.clients[bodyHandler["client_id"]].storjClient)
+						// clientManager.clients[bodyHandler["client_id"]].workers[newID].perform(60, clientManager.clients[bodyHandler["client_id"]].storjClient)
+						clientManager.clients[bodyHandler["client_id"]].workers[newID].perform(16200, clientManager.clients[bodyHandler["client_id"]].storjClient)
 					}()
 				}
 			}
@@ -394,7 +395,7 @@ func main() {
 		pinger.IncomingMessageHandler(w, r)
 	})
 
-	// pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
+	//pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
 	pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 1)
 
 	port := os.Getenv("PORT")
