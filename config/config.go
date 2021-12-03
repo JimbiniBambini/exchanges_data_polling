@@ -2,7 +2,6 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -42,7 +41,6 @@ func NewExchangeConfig(exchangeName string) *ExchangeConfig {
 	file, _ := os.Open(absPath)
 	defer file.Close()
 
-	fmt.Println(absPath)
 	bytes, _ := ioutil.ReadAll(file)
 
 	json.Unmarshal(bytes, &confTmp)

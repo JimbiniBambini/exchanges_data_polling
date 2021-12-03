@@ -23,6 +23,7 @@ import (
 	"data_polling/clients/exchanges"
 
 	"github.com/gorilla/mux"
+	//"github.com/pinger"
 )
 
 //"data_polling/clients/storj_client"
@@ -202,43 +203,51 @@ func (self AssetWorker) perform(waitTimeSec int, storjClient storj_client.StorjC
 	ctx := context.Background()
 
 	// 	// main loop
-
+	var cntSec int = 0
 	for {
 		if self.Run {
-			storjClient.GetAllBucketsAndObjects(ctx)
-			fileLstAsset := make([]string, 0)
-			for _, obj := range storjClient.Buckets[storjClient.Version].GetObjectList() {
-				//fmt.Println("HERE1:", obj)
-				if strings.Contains(obj, self.Asset) && strings.Contains(obj, self.Fiat) && strings.Contains(obj, self.Exchange) {
-					fileLstAsset = append(fileLstAsset, obj)
+			if cntSec == 0 {
+				storjClient.GetAllBucketsAndObjects(ctx)
+				fileLstAsset := make([]string, 0)
+				for _, obj := range storjClient.Buckets[storjClient.Version].GetObjectList() {
+					//fmt.Println("HERE1:", obj)
+					if strings.Contains(obj, self.Asset) && strings.Contains(obj, self.Fiat) && strings.Contains(obj, self.Exchange) {
+						fileLstAsset = append(fileLstAsset, obj)
+					}
 				}
-			}
-			_, idx := getSortedFileNamesAndId(fileLstAsset)
+				_, idx := getSortedFileNamesAndId(fileLstAsset)
 
-			// get data from exchange
-			var bytes2Upload []byte = nil
+				// get data from exchange
+				var bytes2Upload []byte = nil
 
-			configExchange := config.NewExchangeConfig(self.Exchange)
-			// fmt.Println("Worker", self)
-			// fmt.Println("Exchange Config", configExchange)
-			for _, assetExchange := range configExchange.Assets {
-				if assetExchange == assetMapping[self.Exchange][self.Asset][self.Fiat] {
-					// fmt.Println("HERE AFTER CONFIG", assetMapping)
-					bytes2Upload = exchanges.GetExchangeDataCsvByte(assetExchange, *configExchange)
+				configExchange := config.NewExchangeConfig(self.Exchange)
+				// fmt.Println("Worker", self)
+				// fmt.Println("Exchange Config", configExchange)
+				for _, assetExchange := range configExchange.Assets {
+					if assetExchange == assetMapping[self.Exchange][self.Asset][self.Fiat] {
+						// fmt.Println("HERE AFTER CONFIG", assetMapping)
+						bytes2Upload = exchanges.GetExchangeDataCsvByte(assetExchange, *configExchange)
+					}
 				}
+
+				// upload
+				newIdx := 0
+				if len(idx) > 0 {
+					newIdx = idx[len(idx)-1] + 1
+				}
+				period, _ := strconv.Atoi(configExchange.DataPeriod) // BINANCE!!!!!! --> is 1m for minute. Others may also differ!!!
+
+				storjClient.Buckets[storjClient.Version].UploadObject(ctx, bytes2Upload, generateBucketObjectKey(self.Asset, self.Fiat, self.Exchange, period, newIdx), storjClient.Project)
+
+				// --> repeat after WAIT_TIME
+				log.Println("worker_id:", self.ID, "next_call_in:", waitTimeSec, "seconds")
+
 			}
-
-			// upload
-			newIdx := 0
-			if len(idx) > 0 {
-				newIdx = idx[len(idx)-1] + 1
+			cntSec += 1
+			time.Sleep(1 * time.Second)
+			if cntSec == waitTimeSec {
+				cntSec = 0
 			}
-			period, _ := strconv.Atoi(configExchange.DataPeriod) // BINANCE!!!!!! --> is 1m for minute. Others may also differ!!!
-
-			storjClient.Buckets[storjClient.Version].UploadObject(ctx, bytes2Upload, generateBucketObjectKey(self.Asset, self.Fiat, self.Exchange, period, newIdx), storjClient.Project)
-
-			// --> repeat after WAIT_TIME
-			time.Sleep(time.Duration(waitTimeSec) * time.Second)
 		}
 	}
 }
@@ -340,7 +349,7 @@ func (clientManager *ClientManager) workerManager(w http.ResponseWriter, r *http
 				if worker.Run {
 					log.Println("worker_start:", newID, worker.Asset, worker.Fiat, worker.Exchange, worker.Period)
 					go func() {
-						clientManager.clients[bodyHandler["client_id"]].workers[newID].perform(16200, clientManager.clients[bodyHandler["client_id"]].storjClient)
+						clientManager.clients[bodyHandler["client_id"]].workers[newID].perform(60, clientManager.clients[bodyHandler["client_id"]].storjClient)
 					}()
 				}
 			}
@@ -380,6 +389,10 @@ func main() {
 		version := "20412222322359501204117822018212110510788953972494456755024359103164184190215115113" // d1.0
 		clientTmp := clientManager.clients[version].storjClient
 		makeInitialSingleFileUpload(ctx, &clientTmp, "btc", "usd", "kraken", 1, "/Users/Slava/SW_Projects/git/PrivateProjects/trading_pattern_bot/csv_data/exchange_api_data/kraken/1/xbtusd")
+	})
+
+	r.HandleFunc("/ping_in", func(w http.ResponseWriter, r *http.Request) {
+		//pinger.IncomingMessageHandler(w, r)
 	})
 
 	port := os.Getenv("PORT")
