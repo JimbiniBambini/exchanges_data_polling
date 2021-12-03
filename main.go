@@ -392,7 +392,7 @@ func main() {
 	})
 
 	r.HandleFunc("/ping_in", func(w http.ResponseWriter, r *http.Request) {
-		pinger.IncomingMessageHandler(w, r)
+		//pinger.IncomingMessageHandler(w, r)
 	})
 
 	//pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
