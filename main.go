@@ -7,7 +7,7 @@ import (
 	"data_polling/clients/exchanges"
 	"data_polling/clients/storj_client"
 	"data_polling/config"
-	//"data_polling/pinger"
+	"data_polling/pinger"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -393,11 +393,11 @@ func main() {
 
 	r.HandleFunc("/ping_in", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("incoming message", w)
-		//pinger.IncomingMessageHandler(w, r)
+		pinger.IncomingMessageHandler(w, r)
 	})
 
 	//pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
-	//pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 1)
+	pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 1)
 
 	port := os.Getenv("PORT")
 	if port == "" {

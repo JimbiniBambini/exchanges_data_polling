@@ -17,26 +17,29 @@ var OutgoingMsg = RequestFrame{Msg: "Ping"}
 var IncomingMsg = RequestFrame{Msg: "Pong"}
 
 func OutgoingMessageHandler(url string) {
-	b, err := json.Marshal(OutgoingMsg)
-	if err != nil {
-		log.Println("OutgoingMessage --> Error while creating json object")
-	}
+	// b, err := json.Marshal(OutgoingMsg)
+	// if err != nil {
+	// 	log.Println("OutgoingMessage --> Error while creating json object")
+	// }
 
-	responseBody := bytes.NewBuffer(b)
-	resp, err := http.Post(url, "application/json", responseBody)
+	// responseBody := bytes.NewBuffer(b)
+	// resp, err := http.Post(url, "application/json", responseBody)
+	// _, err := http.Post(url, "application/json", responseBody)
+	_, err := http.Post(url)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Println("OutgoingMessage --> Error while reading request body")
-	}
+	// body, err := ioutil.ReadAll(resp.Body)
+	// if err != nil {
+	// 	log.Println("OutgoingMessage --> Error while reading request body")
+	// }
 
-	var unpackedMsg RequestFrame
-	json.Unmarshal(body, &unpackedMsg)
+	// var unpackedMsg RequestFrame
+	// json.Unmarshal(body, &unpackedMsg)
 
-	log.Println("OutgoingMessage --> Sent message to:", url, "Response:", unpackedMsg.Msg)
+	// log.Println("OutgoingMessage --> Sent message to:", url, "Response:", unpackedMsg.Msg)
+	log.Println("OutgoingMessage --> Sent message to:", url)
 }
 
 func IncomingMessageHandler(w http.ResponseWriter, r *http.Request) {
