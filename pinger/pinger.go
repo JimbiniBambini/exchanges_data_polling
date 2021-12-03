@@ -17,15 +17,15 @@ var OutgoingMsg = RequestFrame{Msg: "Ping"}
 var IncomingMsg = RequestFrame{Msg: "Pong"}
 
 func OutgoingMessageHandler(url string) {
-	// b, err := json.Marshal(OutgoingMsg)
-	// if err != nil {
-	// 	log.Println("OutgoingMessage --> Error while creating json object")
-	// }
+	b, err := json.Marshal(OutgoingMsg)
+	if err != nil {
+		log.Println("OutgoingMessage --> Error while creating json object")
+	}
 
-	// responseBody := bytes.NewBuffer(b)
+	responseBody := bytes.NewBuffer(b)
 	// resp, err := http.Post(url, "application/json", responseBody)
-	// _, err := http.Post(url, "application/json", responseBody)
-	_, err := http.Post(url)
+	_, err = http.Post(url, "application/json", responseBody)
+	// _, err := http.Post(url, "application/json",)
 	if err != nil {
 		log.Fatalln(err)
 	}
