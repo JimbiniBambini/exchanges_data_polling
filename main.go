@@ -7,7 +7,7 @@ import (
 	"data_polling/clients/exchanges"
 	"data_polling/clients/storj_client"
 	"data_polling/config"
-	"data_polling/pinger"
+	//"data_polling/pinger"
 	"encoding/json"
 	"fmt"
 	"io"
