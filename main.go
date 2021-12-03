@@ -397,7 +397,7 @@ func main() {
 	})
 
 	//pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
-	pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 1)
+	//pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 1)
 
 	port := os.Getenv("PORT")
 	if port == "" {
