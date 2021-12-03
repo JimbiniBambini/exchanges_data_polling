@@ -392,7 +392,7 @@ func main() {
 	})
 
 	r.HandleFunc("/ping_in", func(w http.ResponseWriter, r *http.Request) {
-		//pinger.IncomingMessageHandler(w, r)
+		log.Println("icoming_msg")
 	})
 
 	port := os.Getenv("PORT")
