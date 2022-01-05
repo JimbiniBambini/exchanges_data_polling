@@ -25,7 +25,7 @@ func ConvertCsvToJson() {
 func ConvertJsonToCsv() {}
 
 /* ****************************************** COMMON FUNCTION/TYPES ****************************************** */
-func calcRequestBodyCheckSum(body []byte) string {
+func CalcRequestBodyCheckSum(body []byte) string {
 	h := sha256.New()
 	r := bytes.NewReader(body)
 	if _, err := io.Copy(h, r); err != nil {
@@ -40,7 +40,7 @@ func calcRequestBodyCheckSum(body []byte) string {
 	return str2ret
 }
 
-func generateRandomID(size int) string {
+func GenerateRandomID(size int) string {
 	rand.Seed(time.Now().UnixNano())
 	min := 0
 	max := 9
@@ -51,7 +51,7 @@ func generateRandomID(size int) string {
 	return randStr
 }
 
-func getSortedFilelistExchange(filesLst []string) []string {
+func GetSortedFilelistExchange(filesLst []string) []string {
 	// sort numbers
 	re := regexp.MustCompile(`_id_(\d+)`)
 	fileNums := make([]int, 0)
@@ -71,7 +71,7 @@ func getSortedFilelistExchange(filesLst []string) []string {
 	return filesSortedLst
 }
 
-func getSortedFileNamesAndId(files []string) ([]string, []int) {
+func GetSortedFileNamesAndId(files []string) ([]string, []int) {
 	var fileNumbers []int
 	var fileNames []string
 	var fileNameCut []string
@@ -100,13 +100,13 @@ func getSortedFileNamesAndId(files []string) ([]string, []int) {
 	return fileNamesSorted, fileNumbers
 }
 
-func generateBucketObjectKey(asset string, assetFiat string, exchange string, period int, objectIdx int) string {
+func GenerateBucketObjectKey(asset string, assetFiat string, exchange string, period int, objectIdx int) string {
 	keyFinal := fmt.Sprintf("%s_%s_%s_period_%d_id_%d.csv", asset, assetFiat, exchange, period, objectIdx)
 
 	return keyFinal
 }
 
-func getFileNameStructure(fileNameIn string) (string, string) {
+func GetFileNameStructure(fileNameIn string) (string, string) {
 	// Return vars
 	var fileExtension string
 	var baseStructure string

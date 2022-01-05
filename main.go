@@ -5,6 +5,7 @@ import (
 	"context"
 	"data_polling/clients/exchanges"
 	"data_polling/clients/storj_client"
+	"data_polling/common"
 	"data_polling/config"
 	"data_polling/pinger"
 	"encoding/json"
@@ -45,7 +46,7 @@ func NewClientManager() ClientManager {
 func (clientManager *ClientManager) loginHandler(loginCredentials map[string]string) string {
 	success := "error"
 	mapBytes, _ := json.Marshal(loginCredentials)
-	newID := common.calcRequestBodyCheckSum(mapBytes)
+	newID := common.CalcRequestBodyCheckSum(mapBytes)
 	alreadyAvailable := false
 	for _, cli := range clientManager.clients {
 		if cli.ID == newID {
@@ -102,7 +103,7 @@ func (self *AssetWorker) perform(waitTimeSec int, bucketKey string, storjClient 
 						fileLstAsset = append(fileLstAsset, obj)
 					}
 				}
-				_, idx := common.getSortedFileNamesAndId(fileLstAsset)
+				_, idx := common.GetSortedFileNamesAndId(fileLstAsset)
 
 				// get data from exchange
 				var bytes2Upload []byte = nil
@@ -124,7 +125,7 @@ func (self *AssetWorker) perform(waitTimeSec int, bucketKey string, storjClient 
 				}
 				period, _ := strconv.Atoi(configExchange.DataPeriod) // BINANCE!!!!!! --> is 1m for minute. Others may also differ!!!
 
-				storjClient.Buckets[bucketKey].UploadObject(ctx, bytes2Upload, common.generateBucketObjectKey(self.Asset, self.Fiat, self.Exchange, period, newIdx), storjClient.Project)
+				storjClient.Buckets[bucketKey].UploadObject(ctx, bytes2Upload, common.GenerateBucketObjectKey(self.Asset, self.Fiat, self.Exchange, period, newIdx), storjClient.Project)
 
 				// --> repeat after WAIT_TIME
 				log.Println("worker_id:", self.ID, "next_call_in:", waitTimeSec, "seconds")
@@ -222,7 +223,7 @@ func manageClients(w http.ResponseWriter, r *http.Request, clientManager *Client
 			filesSortedLst := make([]string, 0)
 
 			if len(filesLst) != 0 {
-				filesSortedLst = common.getSortedFilelistExchange(filesLst)
+				filesSortedLst = common.GetSortedFilelistExchange(filesLst)
 			}
 			commandHandler.Response = filesSortedLst
 		}
@@ -385,7 +386,7 @@ func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *Client
 			// add worker to a specific client
 			if commandHandler.Command == "add_worker" {
 				mapBytes, _ := json.Marshal(commandHandler.Worker)
-				newID := common.calcRequestBodyCheckSum(mapBytes)
+				newID := common.CalcRequestBodyCheckSum(mapBytes)
 
 				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey]; !ok {
 					clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey] = make(map[string]*AssetWorker)
