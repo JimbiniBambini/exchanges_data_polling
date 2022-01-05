@@ -25,18 +25,11 @@ import (
 	"github.com/gorilla/mux"
 )
 
-//"data_polling/clients/storj_client"
-// "data_polling/config"
-// "data_polling/clients/exchanges"
-
-//"github.com/gorilla/mux"
+/* ****************************************** ENV AND GLOBALS ****************************************** */
+var GIT_DEV bool
 
 // exchange --> asset_regular --> fiat --> exchange_specific_asset
 var assetMapping map[string]map[string]map[string]string
-
-type RespFrame struct {
-	NewID string `json:"new_id"`
-}
 
 /* ****************************************** COMMON FUNCTION/TYPES ****************************************** */
 
@@ -569,30 +562,35 @@ func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *Client
 	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 
+/* ****************************************** TODO ****************************************** */
+/*
+
+	NEXT Release
+	- add variables for dev and prod versions
+	+ add option for multiple clients
+	+ add option to delete clients
+	+ add option to delete workers
+	+ start/stop workers
+	+ check with multiple workers
+	+ list all available buckets in client
+	+ list all available files in bucket
+	- api to upload files
+
+	NEXT Release
+	- correct the issue with panic, while downloading non existing file
+	- add download scheme and proper api for exchanges (at least kraken)
+	- check the option for separate maps for clients and workers (workers can be accessed via client id as a map key) --> better scalability?
+	- switch to new architecture with separate module for APi to clean the main module
+	- add option for clients with multiple buckets at the same time
+	- ADD PROPER CONFIG FOR ASSETS
+	- ADD CONCAT-FILE ROUTINE AND A BUCKET FOR IT
+*/
+
+/* ****************************************** MAIN ****************************************** */
 func main() {
-	// todo
-	/*
-		NEXT Release
-		- add variables for dev and prod versions
-		+ add option for multiple clients
-		+ add option to delete clients
-		+ add option to delete workers
-		+ start/stop workers
-		+ check with multiple workers
-		+ list all available buckets in client
-		+ list all available files in bucket
-		- api to upload files
-	*/
-	/*
-		NEXT Release
-		- correct the issue with panic, while downloading non existing file
-		- add download scheme and proper api for exchanges (at least kraken)
-		- check the option for separate maps for clients and workers (workers can be accessed via client id as a map key) --> better scalability?
-		- switch to new architecture with separate module for APi to clean the main module
-		- add option for clients with multiple buckets at the same time
-		- ADD PROPER CONFIG FOR ASSETS
-		- ADD CONCAT-FILE ROUTINE AND A BUCKET FOR IT
-	*/
+
+	log.Println(os.Getenv("GIT_DEV"), (os.Getenv("GIT_DEV") == "true"))
+	GIT_DEV = (os.Getenv("GIT_DEV") == "true")
 
 	clientManager := NewClientManager()
 
