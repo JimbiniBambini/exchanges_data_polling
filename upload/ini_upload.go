@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"data_polling/clients/common"
-	"data_polling/clients/storj_client"
+	"github.com/JimbiniBambini/exchanges_data_polling"
+
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,9 +13,9 @@ import (
 	"strings"
 )
 
-func makeInitialSingleFileUpload(ctx context.Context, self *storj_client.StorjClient, bucketKey string, asset string, fiat string, exchange string, period int, path2Folder string) {
+func makeInitialSingleFileUpload(ctx context.Context, self *exchanges_data_polling.storj_client.StorjClient, bucketKey string, asset string, fiat string, exchange string, period int, path2Folder string) {
 	// ensure bucket --> Version + Pair + Option + Exchange
-	var keys []string = []string{bucketKey, asset, exchange, storj_client.StorageOptionSingle}
+	var keys []string = []string{bucketKey, asset, exchange, exchanges_data_polling.storj_client.StorageOptionSingle}
 
 	_, err := self.Project.EnsureBucket(ctx, bucketKey)
 	if err != nil {
