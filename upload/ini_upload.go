@@ -1,18 +1,12 @@
 package main
 
 import (
-	"context"
-	"github.com/JimbiniBambini/exchanges_data_polling"
+	"exchanges_data_polling/storj_client"
 
 	"fmt"
-	"io/ioutil"
-	"log"
-	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
 )
 
+/*
 func makeInitialSingleFileUpload(ctx context.Context, self *exchanges_data_polling.storj_client.StorjClient, bucketKey string, asset string, fiat string, exchange string, period int, path2Folder string) {
 	// ensure bucket --> Version + Pair + Option + Exchange
 	var keys []string = []string{bucketKey, asset, exchange, exchanges_data_polling.storj_client.StorageOptionSingle}
@@ -68,7 +62,9 @@ func makeInitialSingleFileUpload(ctx context.Context, self *exchanges_data_polli
 	}
 
 }
-
+*/
 func main() {
 	fmt.Println("Test")
+	tst := storj_client.StorjClient{}
+	fmt.Println(tst)
 }
