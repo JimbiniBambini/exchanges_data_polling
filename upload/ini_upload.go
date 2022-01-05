@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"data_polling/clients/common"
+	"data_polling/clients/storj_client"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -60,8 +62,8 @@ func makeInitialSingleFileUpload(ctx context.Context, self *storj_client.StorjCl
 		if err != nil {
 			fmt.Print(err)
 		}
-		fmt.Println(generateBucketObjectKey(asset, fiat, exchange, period, idx))
-		self.Buckets[bucketKey].UploadObject(ctx, b, generateBucketObjectKey(asset, fiat, exchange, period, idx), self.Project)
+		fmt.Println(common.GenerateBucketObjectKey(asset, fiat, exchange, period, idx))
+		self.Buckets[bucketKey].UploadObject(ctx, b, common.GenerateBucketObjectKey(asset, fiat, exchange, period, idx), self.Project)
 		//fmt.Println(b)
 	}
 

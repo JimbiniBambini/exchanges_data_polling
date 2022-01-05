@@ -3,19 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
-	"data_polling/clients/exchanges"
-	"data_polling/clients/storj_client"
 	"data_polling/common"
-	"data_polling/config"
+	"data_polling/managers/client_manager"
 	"data_polling/pinger"
+	"data_polling/workers"
 	"encoding/json"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -25,122 +21,6 @@ var GIT_DEV bool
 
 // exchange --> asset_regular --> fiat --> exchange_specific_asset
 var assetMapping map[string]map[string]map[string]string
-
-/* ****************************************** CLIENT IMPLEMENTATION ****************************************** */
-type Client struct {
-	ID          string
-	storjClient storj_client.StorjClient
-	workers     map[string]map[string]*AssetWorker //scheme: bucket --> worker_id
-}
-
-type ClientManager struct {
-	clients map[string]*Client
-}
-
-func NewClientManager() ClientManager {
-	var clientManager ClientManager
-	clientManager.clients = make(map[string]*Client, 0)
-	return clientManager
-}
-
-func (clientManager *ClientManager) loginHandler(loginCredentials map[string]string) string {
-	success := "error"
-	mapBytes, _ := json.Marshal(loginCredentials)
-	newID := common.CalcRequestBodyCheckSum(mapBytes)
-	alreadyAvailable := false
-	for _, cli := range clientManager.clients {
-		if cli.ID == newID {
-			alreadyAvailable = true
-			break
-		}
-	}
-	if !alreadyAvailable {
-		ctx := context.Background()
-
-		newClient, cliAvailable := storj_client.NewStorjClient(ctx, loginCredentials)
-		if cliAvailable {
-			clientManager.clients[newID] = &Client{
-				ID:          newID,
-				storjClient: newClient,
-				workers:     make(map[string]map[string]*AssetWorker, 0),
-			}
-			success = newID
-		}
-	}
-
-	return success
-}
-
-/* ****************************************** WORKER IMPLEMENTATION ****************************************** */
-type AssetWorker struct {
-	ID       string `json:"id"`
-	Asset    string `json:"asset"`
-	Fiat     string `json:"fiat"`
-	Exchange string `json:"exchange"`
-	Period   string `json:"period"`
-	Run      bool   `json:"run"`
-}
-
-func (self *AssetWorker) runHandler(runCmd bool) {
-	self.Run = runCmd
-}
-
-func (self *AssetWorker) perform(waitTimeSec int, bucketKey string, storjClient storj_client.StorjClient) {
-	// 	// get latest data for exchange and asset from storj
-	ctx := context.Background()
-
-	// 	// main loop
-	var cntSec int = 0
-	for {
-		if self.Run {
-			if cntSec == 0 {
-				//storjClient.GetAllBucketsAndObjects(ctx)
-				storjClient.UpdateClient(ctx)
-				fileLstAsset := make([]string, 0)
-				for _, obj := range storjClient.Buckets[bucketKey].GetObjectList() {
-					//fmt.Println("HERE1:", obj)
-					if strings.Contains(obj, self.Asset) && strings.Contains(obj, self.Fiat) && strings.Contains(obj, self.Exchange) {
-						fileLstAsset = append(fileLstAsset, obj)
-					}
-				}
-				_, idx := common.GetSortedFileNamesAndId(fileLstAsset)
-
-				// get data from exchange
-				var bytes2Upload []byte = nil
-
-				configExchange := config.NewExchangeConfig(self.Exchange)
-				// fmt.Println("Worker", self)
-				// fmt.Println("Exchange Config", configExchange)
-				for _, assetExchange := range configExchange.Assets {
-					if assetExchange == assetMapping[self.Exchange][self.Asset][self.Fiat] {
-						// fmt.Println("HERE AFTER CONFIG", assetMapping)
-						bytes2Upload = exchanges.GetExchangeDataCsvByte(assetExchange, *configExchange)
-					}
-				}
-
-				// upload
-				newIdx := 0
-				if len(idx) > 0 {
-					newIdx = idx[len(idx)-1] + 1
-				}
-				period, _ := strconv.Atoi(configExchange.DataPeriod) // BINANCE!!!!!! --> is 1m for minute. Others may also differ!!!
-
-				storjClient.Buckets[bucketKey].UploadObject(ctx, bytes2Upload, common.GenerateBucketObjectKey(self.Asset, self.Fiat, self.Exchange, period, newIdx), storjClient.Project)
-
-				// --> repeat after WAIT_TIME
-				log.Println("worker_id:", self.ID, "next_call_in:", waitTimeSec, "seconds")
-
-			}
-			cntSec += 1
-			time.Sleep(1 * time.Second)
-			if cntSec == waitTimeSec {
-				cntSec = 0
-			}
-		} else {
-			return
-		}
-	}
-}
 
 /* ****************************************** API COMMON ****************************************** */
 
@@ -157,7 +37,7 @@ type CommanderClient struct {
 	LoginData map[string]string `json:"login_data"`
 }
 
-func manageClients(w http.ResponseWriter, r *http.Request, clientManager *ClientManager) {
+func manageClients(w http.ResponseWriter, r *http.Request, clientManager *client_manager.ClientManager) {
 	var endpoint string = "storj_client_manager"
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -175,15 +55,15 @@ func manageClients(w http.ResponseWriter, r *http.Request, clientManager *Client
 	/* ********************* POST ********************* */
 	case http.MethodPost:
 		if commandHandler.Command == "login_client" {
-			commandHandler.Response = clientManager.loginHandler(commandHandler.LoginData)
+			commandHandler.Response = clientManager.LoginHandler(commandHandler.LoginData)
 		}
 
 	/* ********************* DELETE ********************* */
 	case http.MethodDelete:
 		if commandHandler.Command == "delete_client" {
 
-			if _, ok := clientManager.clients[commandHandler.ClientId]; ok {
-				delete(clientManager.clients, commandHandler.ClientId)
+			if _, ok := clientManager.Clients[commandHandler.ClientId]; ok {
+				delete(clientManager.Clients, commandHandler.ClientId)
 				commandHandler.Response = "success"
 			} else {
 				commandHandler.Response = "error"
@@ -197,7 +77,7 @@ func manageClients(w http.ResponseWriter, r *http.Request, clientManager *Client
 		if commandHandler.Command == "list_clients" {
 
 			clientIdLst := make([]string, 0)
-			for keyCli, _ := range clientManager.clients {
+			for keyCli, _ := range clientManager.Clients {
 				clientIdLst = append(clientIdLst, keyCli)
 			}
 			commandHandler.Response = clientIdLst
@@ -207,9 +87,9 @@ func manageClients(w http.ResponseWriter, r *http.Request, clientManager *Client
 
 			filesLst := make([]string, 0)
 		loop2:
-			for keyCli, client := range clientManager.clients {
+			for keyCli, client := range clientManager.Clients {
 				if keyCli == commandHandler.ClientId {
-					for keyBucket, bucket := range client.storjClient.Buckets {
+					for keyBucket, bucket := range client.StorjClient.Buckets {
 						if keyBucket == commandHandler.BucketKey {
 							for _, obj := range bucket.Objects {
 								//log.Println(obj, bucket.Objects)
@@ -234,7 +114,7 @@ func manageClients(w http.ResponseWriter, r *http.Request, clientManager *Client
 }
 
 /* ****************************************** BUCKET MANAGER API ****************************************** */
-func manageBuckets(w http.ResponseWriter, r *http.Request, clientManager *ClientManager) {
+func manageBuckets(w http.ResponseWriter, r *http.Request, clientManager *client_manager.ClientManager) {
 	var endpoint string = "storj_bucket_manager"
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -254,8 +134,8 @@ func manageBuckets(w http.ResponseWriter, r *http.Request, clientManager *Client
 	/* ********************* POST ********************* */
 	case http.MethodPost:
 		if commandHandler.Command == "add_bucket" {
-			clientManager.clients[commandHandler.ClientId].storjClient.UpdateClient(ctx)
-			if clientManager.clients[commandHandler.ClientId].storjClient.AddBucket(ctx, commandHandler.BucketKey) {
+			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
+			if clientManager.Clients[commandHandler.ClientId].StorjClient.AddBucket(ctx, commandHandler.BucketKey) {
 				commandHandler.Response = "success"
 			} else {
 				commandHandler.Response = "error"
@@ -268,8 +148,8 @@ func manageBuckets(w http.ResponseWriter, r *http.Request, clientManager *Client
 			if GIT_DEV {
 				delOption = true
 			}
-			clientManager.clients[commandHandler.ClientId].storjClient.UpdateClient(ctx)
-			if clientManager.clients[commandHandler.ClientId].storjClient.DeleteBucket(ctx, commandHandler.BucketKey, delOption) {
+			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
+			if clientManager.Clients[commandHandler.ClientId].StorjClient.DeleteBucket(ctx, commandHandler.BucketKey, delOption) {
 				commandHandler.Response = "success"
 			} else {
 				commandHandler.Response = "error"
@@ -279,12 +159,12 @@ func manageBuckets(w http.ResponseWriter, r *http.Request, clientManager *Client
 	case http.MethodGet:
 		// get list of buckets for a specific client
 		if commandHandler.Command == "list_client_buckets" {
-			clientManager.clients[commandHandler.ClientId].storjClient.UpdateClient(ctx)
+			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
 			bucketKeyLst := make([]string, 0)
 		loop1:
-			for keyCli, client := range clientManager.clients {
+			for keyCli, client := range clientManager.Clients {
 				if keyCli == commandHandler.ClientId {
-					for keyBucket, _ := range client.storjClient.Buckets {
+					for keyBucket, _ := range client.StorjClient.Buckets {
 						bucketKeyLst = append(bucketKeyLst, keyBucket)
 					}
 					break loop1
@@ -304,7 +184,7 @@ type CommanderFiles struct {
 	Data    []byte `json:"data"`
 }
 
-func manageFiles(w http.ResponseWriter, r *http.Request, clientManager *ClientManager) {
+func manageFiles(w http.ResponseWriter, r *http.Request, clientManager *client_manager.ClientManager) {
 	var endpoint string = "storj_file_manager"
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -324,8 +204,8 @@ func manageFiles(w http.ResponseWriter, r *http.Request, clientManager *ClientMa
 	/* ********************* POST ********************* */
 	case http.MethodPost:
 		if commandHandler.Command == "add_bucket_file" {
-			clientManager.clients[commandHandler.ClientId].storjClient.UpdateClient(ctx)
-			clientManager.clients[commandHandler.ClientId].storjClient.Buckets[commandHandler.BucketKey].UploadObject(ctx, []byte{1, 2, 3}, commandHandler.FileKey, clientManager.clients[commandHandler.ClientId].storjClient.Project)
+			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
+			clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].UploadObject(ctx, []byte{1, 2, 3}, commandHandler.FileKey, clientManager.Clients[commandHandler.ClientId].StorjClient.Project)
 			//BUCKET.UploadObject(ctx, commandHandler.Data, commandHandler.FileKey, project)
 
 		}
@@ -334,17 +214,17 @@ func manageFiles(w http.ResponseWriter, r *http.Request, clientManager *ClientMa
 		/* ********************* GET ********************* */
 	case http.MethodGet:
 		if commandHandler.Command == "list_bucket_files" {
-			clientManager.clients[commandHandler.ClientId].storjClient.UpdateClient(ctx)
-			if _, ok := clientManager.clients[commandHandler.ClientId].storjClient.Buckets[commandHandler.BucketKey]; ok {
+			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
+			if _, ok := clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey]; ok {
 
-				commandHandler.Response = clientManager.clients[commandHandler.ClientId].storjClient.Buckets[commandHandler.BucketKey].GetObjectList()
+				commandHandler.Response = clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].GetObjectList()
 			} else {
 				commandHandler.Response = "error"
 			}
 
 		}
 		if commandHandler.Command == "download_bucket_file" {
-			if data, success := clientManager.clients[commandHandler.ClientId].storjClient.Buckets[commandHandler.BucketKey].DownloadObject(ctx, commandHandler.FileKey, clientManager.clients[commandHandler.ClientId].storjClient.Project); success {
+			if data, success := clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].DownloadObject(ctx, commandHandler.FileKey, clientManager.Clients[commandHandler.ClientId].StorjClient.Project); success {
 				type RespFrame struct {
 					Data []byte `json:"data"`
 				}
@@ -360,11 +240,11 @@ func manageFiles(w http.ResponseWriter, r *http.Request, clientManager *ClientMa
 /* ****************************************** WORKER MANAGER API ****************************************** */
 type CommanderWorker struct {
 	Commander
-	DataPollPeriodSec int         `json:"poll_period"`
-	Worker            AssetWorker `json:"worker"`
+	DataPollPeriodSec int                 `json:"poll_period"`
+	Worker            workers.AssetWorker `json:"worker"`
 }
 
-func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *ClientManager) {
+func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client_manager.ClientManager) {
 	var endpoint string = "storj_worker_manager"
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -378,7 +258,7 @@ func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *Client
 
 	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey, "WORKER_ID", commandHandler.Worker.ID)
 
-	if _, ok := clientManager.clients[commandHandler.ClientId]; ok {
+	if _, ok := clientManager.Clients[commandHandler.ClientId]; ok {
 		switch r.Method {
 		/* ********************* POST ********************* */
 		case http.MethodPost:
@@ -388,13 +268,13 @@ func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *Client
 				mapBytes, _ := json.Marshal(commandHandler.Worker)
 				newID := common.CalcRequestBodyCheckSum(mapBytes)
 
-				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey]; !ok {
-					clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey] = make(map[string]*AssetWorker)
+				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey]; !ok {
+					clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey] = make(map[string]*workers.AssetWorker)
 				}
 
-				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][newID]; !ok {
+				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][newID]; !ok {
 					commandHandler.Worker.ID = newID
-					clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][newID] = &commandHandler.Worker
+					clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][newID] = &commandHandler.Worker
 
 					commandHandler.Response = newID
 				} else {
@@ -404,11 +284,11 @@ func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *Client
 
 			// start or stop worker
 			if commandHandler.Command == "run_worker" {
-				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
-					if commandHandler.Worker.Run && clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID].Run == false {
+				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
+					if commandHandler.Worker.Run && clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID].Run == false {
 						go func() {
-							clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID].runHandler(true)
-							clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID].perform(commandHandler.DataPollPeriodSec, commandHandler.BucketKey, clientManager.clients[commandHandler.ClientId].storjClient)
+							clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID].RunHandler(true)
+							clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID].Perform(commandHandler.DataPollPeriodSec, commandHandler.BucketKey, clientManager.Clients[commandHandler.ClientId].StorjClient, assetMapping)
 							return
 						}()
 						commandHandler.Response = "success"
@@ -416,7 +296,7 @@ func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *Client
 						commandHandler.Response = "error"
 					}
 					if !commandHandler.Worker.Run {
-						clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID].runHandler(false)
+						clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID].RunHandler(false)
 						commandHandler.Response = "success"
 					}
 
@@ -429,9 +309,9 @@ func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *Client
 		case http.MethodDelete:
 			// delete worker
 			if commandHandler.Command == "delete_worker" {
-				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
-					clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID].runHandler(false)
-					delete(clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey], commandHandler.Worker.ID)
+				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
+					clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID].RunHandler(false)
+					delete(clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey], commandHandler.Worker.ID)
 					commandHandler.Response = "success"
 				} else {
 					commandHandler.Response = "error"
@@ -441,11 +321,11 @@ func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *Client
 		case http.MethodGet:
 			// list all workers assigned to a specific client
 			if commandHandler.Command == "list_workers_all" {
-				commandHandler.Response = clientManager.clients[commandHandler.ClientId].workers
+				commandHandler.Response = clientManager.Clients[commandHandler.ClientId].Workers
 			}
 			if commandHandler.Command == "list_workers_bucket" {
-				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
-					commandHandler.Response = clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey]
+				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
+					commandHandler.Response = clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey]
 				} else {
 					commandHandler.Response = "error"
 				}
@@ -487,7 +367,7 @@ func main() {
 	log.Println("Dev_Env:", os.Getenv("GIT_DEV") == "true")
 	GIT_DEV = (os.Getenv("GIT_DEV") == "true")
 
-	clientManager := NewClientManager()
+	clientManager := client_manager.NewClientManager()
 
 	assetMapping = make(map[string]map[string]map[string]string)
 	assetMapping["kraken"] = make(map[string]map[string]string)
