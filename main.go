@@ -16,7 +16,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,6 +38,28 @@ type RespFrame struct {
 	NewID string `json:"new_id"`
 }
 
+/* ****************************************** COMMON FUNCTION/TYPES ****************************************** */
+
+func getSortedFilelistExchange(filesLst []string) []string {
+	// sort numbers
+	re := regexp.MustCompile(`_id_(\d+)`)
+	fileNums := make([]int, 0)
+	for _, val := range filesLst {
+		num, _ := strconv.Atoi(re.FindStringSubmatch(val)[1])
+		fileNums = append(fileNums, num)
+
+	}
+
+	re = regexp.MustCompile(`^(.*?)_id_`)
+	fileBase := re.FindStringSubmatch(filesLst[0])[0]
+	sort.Ints(fileNums)
+	filesSortedLst := make([]string, 0)
+	for _, val := range fileNums {
+		filesSortedLst = append(filesSortedLst, fileBase+strconv.Itoa(val)+".csv")
+	}
+	return filesSortedLst
+}
+
 func calcRequestBodyCheckSum(body []byte) string {
 	h := sha256.New()
 	r := bytes.NewReader(body)
@@ -57,64 +79,6 @@ func generateBucketObjectKey(asset string, assetFiat string, exchange string, pe
 	keyFinal := fmt.Sprintf("%s_%s_%s_period_%d_id_%d.csv", asset, assetFiat, exchange, period, objectIdx)
 
 	return keyFinal
-}
-
-func makeInitialSingleFileUpload(ctx context.Context, self *storj_client.StorjClient, asset string, fiat string, exchange string, period int, path2Folder string) {
-	// ensure bucket --> Version + Pair + Option + Exchange
-	var keys []string = []string{self.Version, asset, exchange, storj_client.StorageOptionSingle}
-
-	_, err := self.Project.EnsureBucket(ctx, keys[0])
-	if err != nil {
-		fmt.Errorf("could not ensure bucket: %v", err)
-	}
-	self.GetAllBucketsAndObjects(ctx)
-	files, err := ioutil.ReadDir(path2Folder)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var fileNumbers []int
-	var fileNames []string
-	var fileNameCut []string
-
-	for _, f := range files {
-		if strings.Contains(f.Name(), ".csv") {
-			//fmt.Println(f.Name(), strings.Contains(f.Name(), ".csv"))
-			fileNameCut = strings.Split(strings.Split(f.Name(), ".csv")[0], "_")
-			num, _ := strconv.Atoi(fileNameCut[len(fileNameCut)-1])
-			fileNumbers = append(fileNumbers, num)
-			fileNames = append(fileNames, f.Name())
-
-		}
-	}
-
-	sort.Ints(fileNumbers)
-	fileNameBase := ""
-	for i, val := range fileNameCut {
-		if i < len(fileNameCut)-1 {
-			fileNameBase += (val + "_")
-		}
-	}
-	var fileNamesSorted []string
-	for _, val := range fileNumbers {
-		fileNamesSorted = append(fileNamesSorted, fileNameBase+strconv.Itoa(val)+".csv")
-	}
-
-	for _, val := range self.Buckets {
-		if val.Key == self.Version {
-			for idx, fileName := range fileNamesSorted {
-				fmt.Println("Uploading file:", idx+1, "Total Files:", len(fileNamesSorted))
-				b, err := ioutil.ReadFile(path2Folder + string(filepath.Separator) + fileName)
-				if err != nil {
-					fmt.Print(err)
-				}
-				fmt.Println(generateBucketObjectKey(asset, fiat, exchange, period, idx))
-				val.UploadObject(ctx, b, generateBucketObjectKey(asset, fiat, exchange, period, idx), self.Project)
-				//fmt.Println(b)
-			}
-		}
-	}
-
 }
 
 func getSortedFileNamesAndId(files []string) ([]string, []int) {
@@ -163,20 +127,6 @@ func getFileNameStructure(fileNameIn string) (string, string) {
 	return baseStructure, fileExtension
 }
 
-func server() {
-
-	// API (Storj Credentials)
-	// get Storj credentials (aka config per POST)
-	// login by Storj
-	// by success send master ID
-	// develop system to stop all workers
-	// develop erase mechanism for IDs
-	// API (OPTIONAL Initial Upload)
-	// option to make initial upload
-	// API (Add worker to Storj ID)
-	// check storj internal ID
-}
-
 func generateRandomID(size int) string {
 	rand.Seed(time.Now().UnixNano())
 	min := 0
@@ -188,6 +138,52 @@ func generateRandomID(size int) string {
 	return randStr
 }
 
+/* ****************************************** CLIENT IMPLEMENTATION ****************************************** */
+type Client struct {
+	ID          string
+	storjClient storj_client.StorjClient
+	workers     map[string]map[string]*AssetWorker //scheme: bucket --> worker_id
+}
+
+type ClientManager struct {
+	clients map[string]*Client
+}
+
+func NewClientManager() ClientManager {
+	var clientManager ClientManager
+	clientManager.clients = make(map[string]*Client, 0)
+	return clientManager
+}
+
+func (clientManager *ClientManager) loginHandler(loginCredentials map[string]string) string {
+	success := "error"
+	mapBytes, _ := json.Marshal(loginCredentials)
+	newID := calcRequestBodyCheckSum(mapBytes)
+	alreadyAvailable := false
+	for _, cli := range clientManager.clients {
+		if cli.ID == newID {
+			alreadyAvailable = true
+			break
+		}
+	}
+	if !alreadyAvailable {
+		ctx := context.Background()
+
+		newClient, cliAvailable := storj_client.NewStorjClient(ctx, loginCredentials)
+		if cliAvailable {
+			clientManager.clients[newID] = &Client{
+				ID:          newID,
+				storjClient: newClient,
+				workers:     make(map[string]map[string]*AssetWorker, 0),
+			}
+			success = newID
+		}
+	}
+
+	return success
+}
+
+/* ****************************************** WORKER IMPLEMENTATION ****************************************** */
 type AssetWorker struct {
 	ID       string `json:"id"`
 	Asset    string `json:"asset"`
@@ -197,7 +193,11 @@ type AssetWorker struct {
 	Run      bool   `json:"run"`
 }
 
-func (self AssetWorker) perform(waitTimeSec int, storjClient storj_client.StorjClient) {
+func (self *AssetWorker) runHandler(runCmd bool) {
+	self.Run = runCmd
+}
+
+func (self *AssetWorker) perform(waitTimeSec int, bucketKey string, storjClient storj_client.StorjClient) {
 	// 	// get latest data for exchange and asset from storj
 	ctx := context.Background()
 
@@ -206,9 +206,10 @@ func (self AssetWorker) perform(waitTimeSec int, storjClient storj_client.StorjC
 	for {
 		if self.Run {
 			if cntSec == 0 {
-				storjClient.GetAllBucketsAndObjects(ctx)
+				//storjClient.GetAllBucketsAndObjects(ctx)
+				storjClient.UpdateClient(ctx)
 				fileLstAsset := make([]string, 0)
-				for _, obj := range storjClient.Buckets[storjClient.Version].GetObjectList() {
+				for _, obj := range storjClient.Buckets[bucketKey].GetObjectList() {
 					//fmt.Println("HERE1:", obj)
 					if strings.Contains(obj, self.Asset) && strings.Contains(obj, self.Fiat) && strings.Contains(obj, self.Exchange) {
 						fileLstAsset = append(fileLstAsset, obj)
@@ -236,7 +237,7 @@ func (self AssetWorker) perform(waitTimeSec int, storjClient storj_client.StorjC
 				}
 				period, _ := strconv.Atoi(configExchange.DataPeriod) // BINANCE!!!!!! --> is 1m for minute. Others may also differ!!!
 
-				storjClient.Buckets[storjClient.Version].UploadObject(ctx, bytes2Upload, generateBucketObjectKey(self.Asset, self.Fiat, self.Exchange, period, newIdx), storjClient.Project)
+				storjClient.Buckets[bucketKey].UploadObject(ctx, bytes2Upload, generateBucketObjectKey(self.Asset, self.Fiat, self.Exchange, period, newIdx), storjClient.Project)
 
 				// --> repeat after WAIT_TIME
 				log.Println("worker_id:", self.ID, "next_call_in:", waitTimeSec, "seconds")
@@ -247,121 +248,352 @@ func (self AssetWorker) perform(waitTimeSec int, storjClient storj_client.StorjC
 			if cntSec == waitTimeSec {
 				cntSec = 0
 			}
+		} else {
+			return
 		}
 	}
 }
 
-type Client struct {
-	ID          string
-	storjClient storj_client.StorjClient
-	workers     map[string]AssetWorker
+/* ****************************************** API COMMON ****************************************** */
+
+type Commander struct {
+	Command   string      `json:"command"`
+	ClientId  string      `json:"client_id"`
+	BucketKey string      `json:"bucket_key"`
+	Response  interface{} `json:"response"`
 }
 
-type ClientManager struct {
-	clients map[string]Client
+/* ****************************************** CLIENT MANAGER API ****************************************** */
+type CommanderClient struct {
+	Commander
+	LoginData map[string]string `json:"login_data"`
 }
 
-func NewClientManager() ClientManager {
-	var clientManager ClientManager
-	clientManager.clients = make(map[string]Client, 0)
-	return clientManager
-}
+func manageClients(w http.ResponseWriter, r *http.Request, clientManager *ClientManager) {
+	var endpoint string = "storj_client_manager"
 
-func (clientManager *ClientManager) loginManager(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println("Error while reading request body")
+	}
 
-	w.Header().Set("Content-Type", "application/json")
+	var commandHandler CommanderClient
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	err = decoder.Decode(&commandHandler)
+
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey)
 
 	switch r.Method {
+	/* ********************* POST ********************* */
 	case http.MethodPost:
-
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			log.Println("Error while reading request body")
+		if commandHandler.Command == "login_client" {
+			commandHandler.Response = clientManager.loginHandler(commandHandler.LoginData)
 		}
 
-		newID := calcRequestBodyCheckSum(body) //generateRandomID(storj_client.LenID)
+	/* ********************* DELETE ********************* */
+	case http.MethodDelete:
+		if commandHandler.Command == "delete_client" {
 
-		alreadyAvailable := false
-		for _, cli := range clientManager.clients {
-			if cli.ID == newID {
-				alreadyAvailable = true
-				break
-			}
-		}
-
-		if !alreadyAvailable {
-			ctx := context.Background()
-
-			confLogin := storj_client.NewAccessCredentialsStorj(body)
-			newClient := confLogin.GetStorjClient(ctx)
-
-			if newClient.Project != nil && newClient.Buckets != nil && newClient.Version != "error" {
-				clientManager.clients[newID] = Client{
-					ID:          newID,
-					storjClient: newClient,
-					workers:     make(map[string]AssetWorker, 0),
-				}
-				log.Println("new_client_id:", newID)
-				json.NewEncoder(w).Encode(RespFrame{NewID: newID})
+			if _, ok := clientManager.clients[commandHandler.ClientId]; ok {
+				delete(clientManager.clients, commandHandler.ClientId)
+				commandHandler.Response = "success"
 			} else {
-				json.NewEncoder(w).Encode(RespFrame{NewID: "wrong_credentials"})
+				commandHandler.Response = "error"
 			}
-		} else {
-			json.NewEncoder(w).Encode(RespFrame{NewID: "error"})
 		}
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+
+		/* ********************* GET ********************* */
+	case http.MethodGet:
+
+		// get list of clients
+		if commandHandler.Command == "list_clients" {
+
+			clientIdLst := make([]string, 0)
+			for keyCli, _ := range clientManager.clients {
+				clientIdLst = append(clientIdLst, keyCli)
+			}
+			commandHandler.Response = clientIdLst
+		}
+
+		if commandHandler.Command == "list_bucket_files" {
+
+			filesLst := make([]string, 0)
+		loop2:
+			for keyCli, client := range clientManager.clients {
+				if keyCli == commandHandler.ClientId {
+					for keyBucket, bucket := range client.storjClient.Buckets {
+						if keyBucket == commandHandler.BucketKey {
+							for _, obj := range bucket.Objects {
+								//log.Println(obj, bucket.Objects)
+								filesLst = append(filesLst, obj.Key)
+							}
+							break loop2
+						}
+					}
+				}
+			}
+			filesSortedLst := make([]string, 0)
+
+			if len(filesLst) != 0 {
+				filesSortedLst = getSortedFilelistExchange(filesLst)
+			}
+			commandHandler.Response = filesSortedLst
+		}
+
 	}
+
+	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 
-func (clientManager *ClientManager) workerManager(w http.ResponseWriter, r *http.Request) {
-	//clientID string, asset string, fiat string, exchange string, period string
-	switch r.Method {
-	case http.MethodPost:
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			log.Println("Error while reading request body")
-		}
+/* ****************************************** BUCKET MANAGER API ****************************************** */
+func manageBuckets(w http.ResponseWriter, r *http.Request, clientManager *ClientManager) {
+	var endpoint string = "storj_bucket_manager"
 
-		bodyHandler := make(map[string]string)
-		decoder := json.NewDecoder(bytes.NewReader(body))
-		err = decoder.Decode(&bodyHandler)
-
-		newID := calcRequestBodyCheckSum(body) //generateRandomID(storj_client.LenID)
-		// check client
-		if _, ok := clientManager.clients[bodyHandler["client_id"]]; ok {
-			alreadyAvailable := false
-			for _, worker := range clientManager.clients[bodyHandler["client_id"]].workers {
-				if worker.ID == newID {
-					alreadyAvailable = true
-					break
-				}
-			}
-
-			if !alreadyAvailable {
-				var worker AssetWorker
-				decoder := json.NewDecoder(bytes.NewReader(body))
-				err = decoder.Decode(&worker)
-				worker.ID = newID
-				clientManager.clients[bodyHandler["client_id"]].workers[newID] = worker
-				log.Println("new_worker_id:", newID)
-				if worker.Run {
-					log.Println("worker_start:", newID, worker.Asset, worker.Fiat, worker.Exchange, worker.Period)
-					go func() {
-						// clientManager.clients[bodyHandler["client_id"]].workers[newID].perform(60, clientManager.clients[bodyHandler["client_id"]].storjClient)
-						clientManager.clients[bodyHandler["client_id"]].workers[newID].perform(16200, clientManager.clients[bodyHandler["client_id"]].storjClient)
-					}()
-				}
-			}
-		} else {
-			json.NewEncoder(w).Encode(RespFrame{NewID: "no_client_found"})
-		}
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println("Error while reading request body")
 	}
+
+	var commandHandler Commander
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	err = decoder.Decode(&commandHandler)
+
+	ctx := context.Background()
+
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey)
+
+	switch r.Method {
+	/* ********************* POST ********************* */
+	case http.MethodPost:
+		if commandHandler.Command == "add_bucket" {
+			clientManager.clients[commandHandler.ClientId].storjClient.UpdateClient(ctx)
+			if clientManager.clients[commandHandler.ClientId].storjClient.AddBucket(ctx, commandHandler.BucketKey) {
+				commandHandler.Response = "success"
+			} else {
+				commandHandler.Response = "error"
+			}
+		}
+	/* ********************* DELETE ********************* */
+	case http.MethodDelete:
+		if commandHandler.Command == "delete_bucket" {
+			var delOption bool = false
+			if GIT_DEV {
+				delOption = true
+			}
+			clientManager.clients[commandHandler.ClientId].storjClient.UpdateClient(ctx)
+			if clientManager.clients[commandHandler.ClientId].storjClient.DeleteBucket(ctx, commandHandler.BucketKey, delOption) {
+				commandHandler.Response = "success"
+			} else {
+				commandHandler.Response = "error"
+			}
+		}
+		/* ********************* GET ********************* */
+	case http.MethodGet:
+		// get list of buckets for a specific client
+		if commandHandler.Command == "list_client_buckets" {
+			clientManager.clients[commandHandler.ClientId].storjClient.UpdateClient(ctx)
+			bucketKeyLst := make([]string, 0)
+		loop1:
+			for keyCli, client := range clientManager.clients {
+				if keyCli == commandHandler.ClientId {
+					for keyBucket, _ := range client.storjClient.Buckets {
+						bucketKeyLst = append(bucketKeyLst, keyBucket)
+					}
+					break loop1
+				}
+
+			}
+			commandHandler.Response = bucketKeyLst
+		}
+	}
+	json.NewEncoder(w).Encode(commandHandler.Response)
+}
+
+/* ****************************************** FILE MANAGER API ****************************************** */
+type CommanderFiles struct {
+	Commander
+	FileKey string `json:"file_key"`
+	Data    []byte `json:"data"`
+}
+
+func manageFiles(w http.ResponseWriter, r *http.Request, clientManager *ClientManager) {
+	var endpoint string = "storj_file_manager"
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println("Error while reading request body")
+	}
+
+	var commandHandler CommanderFiles
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	err = decoder.Decode(&commandHandler)
+
+	ctx := context.Background()
+
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey)
+
+	switch r.Method {
+	/* ********************* POST ********************* */
+	case http.MethodPost:
+		if commandHandler.Command == "add_bucket_file" {
+			clientManager.clients[commandHandler.ClientId].storjClient.UpdateClient(ctx)
+			clientManager.clients[commandHandler.ClientId].storjClient.Buckets[commandHandler.BucketKey].UploadObject(ctx, []byte{1, 2, 3}, commandHandler.FileKey, clientManager.clients[commandHandler.ClientId].storjClient.Project)
+			//BUCKET.UploadObject(ctx, commandHandler.Data, commandHandler.FileKey, project)
+
+		}
+		/* ********************* DELETE ********************* */
+	case http.MethodDelete:
+		/* ********************* GET ********************* */
+	case http.MethodGet:
+		if commandHandler.Command == "list_bucket_files" {
+			clientManager.clients[commandHandler.ClientId].storjClient.UpdateClient(ctx)
+			if _, ok := clientManager.clients[commandHandler.ClientId].storjClient.Buckets[commandHandler.BucketKey]; ok {
+
+				commandHandler.Response = clientManager.clients[commandHandler.ClientId].storjClient.Buckets[commandHandler.BucketKey].GetObjectList()
+			} else {
+				commandHandler.Response = "error"
+			}
+
+		}
+		if commandHandler.Command == "download_bucket_file" {
+			if data, success := clientManager.clients[commandHandler.ClientId].storjClient.Buckets[commandHandler.BucketKey].DownloadObject(ctx, commandHandler.FileKey, clientManager.clients[commandHandler.ClientId].storjClient.Project); success {
+				type RespFrame struct {
+					Data []byte `json:"data"`
+				}
+				commandHandler.Response = RespFrame{Data: data}
+			} else {
+				commandHandler.Response = "error"
+			}
+		}
+	}
+	json.NewEncoder(w).Encode(commandHandler.Response)
+}
+
+/* ****************************************** WORKER MANAGER API ****************************************** */
+type CommanderWorker struct {
+	Commander
+	DataPollPeriodSec int         `json:"poll_period"`
+	Worker            AssetWorker `json:"worker"`
+}
+
+func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *ClientManager) {
+	var endpoint string = "storj_worker_manager"
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println("Error while reading request body")
+	}
+
+	var commandHandler CommanderWorker
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	err = decoder.Decode(&commandHandler)
+
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey, "WORKER_ID", commandHandler.Worker.ID)
+
+	if _, ok := clientManager.clients[commandHandler.ClientId]; ok {
+		switch r.Method {
+		/* ********************* POST ********************* */
+		case http.MethodPost:
+
+			// add worker to a specific client
+			if commandHandler.Command == "add_worker" {
+				mapBytes, _ := json.Marshal(commandHandler.Worker)
+				newID := calcRequestBodyCheckSum(mapBytes)
+
+				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey]; !ok {
+					clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey] = make(map[string]*AssetWorker)
+				}
+
+				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][newID]; !ok {
+					commandHandler.Worker.ID = newID
+					clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][newID] = &commandHandler.Worker
+
+					commandHandler.Response = newID
+				} else {
+					commandHandler.Response = "error"
+				}
+			}
+
+			// start or stop worker
+			if commandHandler.Command == "run_worker" {
+				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
+					if commandHandler.Worker.Run && clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID].Run == false {
+						go func() {
+							clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID].runHandler(true)
+							clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID].perform(commandHandler.DataPollPeriodSec, commandHandler.BucketKey, clientManager.clients[commandHandler.ClientId].storjClient)
+							return
+						}()
+						commandHandler.Response = "success"
+					} else {
+						commandHandler.Response = "error"
+					}
+					if !commandHandler.Worker.Run {
+						clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID].runHandler(false)
+						commandHandler.Response = "success"
+					}
+
+				} else {
+					commandHandler.Response = "error"
+				}
+			}
+
+			/* ********************* DELETE ********************* */
+		case http.MethodDelete:
+			// delete worker
+			if commandHandler.Command == "delete_worker" {
+				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
+					clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID].runHandler(false)
+					delete(clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey], commandHandler.Worker.ID)
+					commandHandler.Response = "success"
+				} else {
+					commandHandler.Response = "error"
+				}
+			}
+			/* ********************* GET ********************* */
+		case http.MethodGet:
+			// list all workers assigned to a specific client
+			if commandHandler.Command == "list_workers_all" {
+				commandHandler.Response = clientManager.clients[commandHandler.ClientId].workers
+			}
+			if commandHandler.Command == "list_workers_bucket" {
+				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
+					commandHandler.Response = clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey]
+				} else {
+					commandHandler.Response = "error"
+				}
+			}
+		}
+	} else {
+		commandHandler.Response = "error"
+	}
+	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 
 func main() {
+	// todo
+	/*
+		NEXT Release
+		- add variables for dev and prod versions
+		+ add option for multiple clients
+		+ add option to delete clients
+		+ add option to delete workers
+		+ start/stop workers
+		+ check with multiple workers
+		+ list all available buckets in client
+		+ list all available files in bucket
+		- api to upload files
+	*/
+	/*
+		NEXT Release
+		- correct the issue with panic, while downloading non existing file
+		- add download scheme and proper api for exchanges (at least kraken)
+		- check the option for separate maps for clients and workers (workers can be accessed via client id as a map key) --> better scalability?
+		- switch to new architecture with separate module for APi to clean the main module
+		- add option for clients with multiple buckets at the same time
+		- ADD PROPER CONFIG FOR ASSETS
+		- ADD CONCAT-FILE ROUTINE AND A BUCKET FOR IT
+	*/
+
 	clientManager := NewClientManager()
 
 	assetMapping = make(map[string]map[string]map[string]string)
@@ -373,22 +605,20 @@ func main() {
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/storj_client_login", func(w http.ResponseWriter, r *http.Request) {
-		clientManager.loginManager(w, r)
+	r.HandleFunc("/storj_client_manager", func(w http.ResponseWriter, r *http.Request) {
+		manageClients(w, r, &clientManager)
 	})
 
-	r.HandleFunc("/storj_client_add_worker", func(w http.ResponseWriter, r *http.Request) {
-		clientManager.workerManager(w, r)
+	r.HandleFunc("/storj_bucket_manager", func(w http.ResponseWriter, r *http.Request) {
+		manageBuckets(w, r, &clientManager)
 	})
 
-	r.HandleFunc("/storj_client_ini_upload", func(w http.ResponseWriter, r *http.Request) {
-		clientManager.loginManager(w, r)
-		fmt.Println(clientManager)
-		ctx := context.Background()
-		// version := "173183936941892022121511823362214322081317511017165981032221661042297013161216231130"		//p1.0
-		version := "20412222322359501204117822018212110510788953972494456755024359103164184190215115113" // d1.0
-		clientTmp := clientManager.clients[version].storjClient
-		makeInitialSingleFileUpload(ctx, &clientTmp, "btc", "usd", "kraken", 1, "/Users/Slava/SW_Projects/git/PrivateProjects/trading_pattern_bot/csv_data/exchange_api_data/kraken/1/xbtusd")
+	r.HandleFunc("/storj_file_manager", func(w http.ResponseWriter, r *http.Request) {
+		manageFiles(w, r, &clientManager)
+	})
+
+	r.HandleFunc("/storj_worker_manager", func(w http.ResponseWriter, r *http.Request) {
+		manageWorkers(w, r, &clientManager)
 	})
 
 	r.HandleFunc("/ping_in", func(w http.ResponseWriter, r *http.Request) {
@@ -396,8 +626,11 @@ func main() {
 		pinger.IncomingMessageHandler(w, r)
 	})
 
-	//pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
-	pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 1)
+	if GIT_DEV {
+		pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
+	} else {
+		pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 1)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -405,34 +638,4 @@ func main() {
 	}
 
 	http.ListenAndServe(":"+port, r)
-
-	// ADD PROPER CONFIG FOR ASSETS
-	// ADD CONCAT-FILE ROUTINE AND A BUCKET FOR IT
-
-	// var storjClient storj_client.StorjClient
-	// ctx := context.Background()
-	// storjClient.AccessProject(ctx, config.NewAccessCredentialsStorj())
-	// storjClient.GetAllBucketsAndObjects(ctx)
-
-	// // NOOOOOOOO!!!!!!!!!
-	//makeInitialSingleFileUpload(ctx, &storjClient, "btc", "usd", "kraken", 1, "/Users/Slava/SW_Projects/git/PrivateProjects/trading_pattern_bot/csv_data/exchange_api_data/kraken/1/xbtusd")
-	// // NOOOOOOOO!!!!!!!!!
-
-	// assetWorker("btc", "usd", "kraken")
-
-	//bucketNr := 0
-	//dataDownload, _ := storjClient.Buckets[bucketNr].DownloadObject(ctx, "btc_usd_kraken_period_1_id_0.csv", storjClient.Project)
-	//	fmt.Println(len(storjClient.Buckets[bucketNr].Objects), strings.Split(strings.Split(string(dataDownload), "\n")[0], ","))
-	//fmt.Println(dataDownload)
-
-	// configKraken := config.NewExchangeConfig("kraken")
-	// for id, asset := range configKraken.Assets {
-	// 	if id == 0 {
-	// 		fmt.Println(asset)
-	// 		//exchanges.GetExchangeData(asset, *configKraken)
-	// 		fmt.Println(exchanges.GetExchangeDataCsvByte(asset, *configKraken))
-	// 	}
-
-	// }
-
 }

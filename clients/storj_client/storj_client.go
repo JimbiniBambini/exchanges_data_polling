@@ -3,7 +3,6 @@ package storj_client
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,58 +20,47 @@ type AccessCredentialsStorj struct {
 	sateliteKey string
 	apiKey      string
 	rootPhrase  string
-	version     string
-}
-
-/* Constructor */
-func NewAccessCredentialsStorj(data []byte) *AccessCredentialsStorj {
-	type ConfInternal struct {
-		SateliteKey string `json:"satelite_key"`
-		ApiKey      string `json:"api_key"`
-		RootPhrase  string `json:"root_phrase"`
-		Version     string `json:"version"`
-	}
-	var confTmp ConfInternal
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	err := decoder.Decode(&confTmp)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return &AccessCredentialsStorj{
-		sateliteKey: confTmp.SateliteKey,
-		apiKey:      confTmp.ApiKey,
-		rootPhrase:  confTmp.RootPhrase,
-		version:     confTmp.Version}
-}
-
-func (credentials AccessCredentialsStorj) GetStorjClient(ctx context.Context) StorjClient {
-	var client StorjClient
-	if client.accessProjectMUX(ctx, credentials.sateliteKey, credentials.apiKey, credentials.rootPhrase, credentials.version) {
-
-		client.GetAllBucketsAndObjects(ctx)
-
-		//ChecksumIEEE([]byte(credentials.sateliteKey + credentials.apiKey + credentials.rootPhrase + credentials.version))
-		// log.Println(client)
-		return client
-	} else {
-		return StorjClient{
-			Project: nil,
-			Buckets: nil,
-			Version: "error"}
-	}
 }
 
 type StorjClient struct {
-	Project *uplink.Project
-	Buckets map[string]Bucket // convert to map for better indexing?????
-	Version string
+	accessData AccessCredentialsStorj
+	Project    *uplink.Project
+	Buckets    map[string]Bucket
+	//Version string
 }
 
-func (self *StorjClient) accessProjectMUX(ctx context.Context, sateliteKey string, apiKey string, rootPhrase string, version string) bool {
+// Constructor with direct access to storj client and all buckets with stored there elements
+func NewStorjClient(ctx context.Context, credentialsIn map[string]string) (StorjClient, bool) {
+	var newClient StorjClient
+	newClient.setAccessData(ctx, credentialsIn)
+	if newClient.accessProjectMUX(ctx) {
+		newClient.GetAllBucketsAndObjects(ctx)
+		return newClient, true
+	} else {
+		return StorjClient{
+			accessData: AccessCredentialsStorj{},
+			Project:    nil,
+			Buckets:    nil}, false
+	}
+}
+
+func (self *StorjClient) UpdateClient(ctx context.Context) {
+	if self.accessProjectMUX(ctx) {
+		self.GetAllBucketsAndObjects(ctx)
+
+	}
+
+}
+
+func (self *StorjClient) setAccessData(ctx context.Context, credentialsIn map[string]string) {
+	self.accessData.sateliteKey = credentialsIn["satelite_key"]
+	self.accessData.apiKey = credentialsIn["api_key"]
+	self.accessData.rootPhrase = credentialsIn["root_phrase"]
+}
+
+func (self *StorjClient) accessProjectMUX(ctx context.Context) bool {
 	success := true
-	access, err := uplink.RequestAccessWithPassphrase(ctx, sateliteKey, apiKey, rootPhrase)
+	access, err := uplink.RequestAccessWithPassphrase(ctx, self.accessData.sateliteKey, self.accessData.apiKey, self.accessData.rootPhrase)
 	if err != nil {
 		fmt.Println(err)
 		success = false
@@ -87,7 +75,7 @@ func (self *StorjClient) accessProjectMUX(ctx context.Context, sateliteKey strin
 			self.Project = project
 		}
 
-		self.Version = version
+		//self.Version = version
 
 		defer project.Close()
 	} else {
@@ -106,6 +94,32 @@ func (self *StorjClient) GetAllBucketsAndObjects(ctx context.Context) {
 	}
 
 	self.Buckets = bucketsMap
+}
+
+func (self *StorjClient) DeleteBucket(ctx context.Context, bucketKey string, delBucketAndFiles bool) bool {
+	var err error
+
+	if delBucketAndFiles {
+		_, err = self.Project.DeleteBucketWithObjects(ctx, bucketKey)
+	} else {
+		_, err = self.Project.DeleteBucket(ctx, bucketKey)
+	}
+
+	if err == nil {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (self *StorjClient) AddBucket(ctx context.Context, bucketKey string) bool {
+	_, err := self.Project.CreateBucket(ctx, bucketKey)
+
+	if err == nil {
+		return true
+	} else {
+		return false
+	}
 }
 
 type Bucket struct {
@@ -150,20 +164,23 @@ func (self Bucket) UploadObject(ctx context.Context, objBytes []byte, objUploadK
 	return operationSuccess
 }
 
-func (self *Bucket) DownloadObject(ctx context.Context, objUploadKey string, project *uplink.Project) ([]byte, bool) {
+func (self Bucket) DownloadObject(ctx context.Context, objUploadKey string, project *uplink.Project) ([]byte, bool) {
 	operationSuccess := true
+	receivedContents := make([]byte, 0)
 	download, err := project.DownloadObject(ctx, self.Key, objUploadKey, nil)
 	if err != nil {
 		fmt.Errorf("could not open object: %v", err)
 		operationSuccess = false
 	}
-	defer download.Close()
 
-	// Read everything from the download stream
-	receivedContents, err := ioutil.ReadAll(download)
-	if err != nil {
-		fmt.Errorf("could not read data: %v", err)
-		operationSuccess = false
+	defer download.Close()
+	if operationSuccess {
+		// Read everything from the download stream
+		receivedContents, err = ioutil.ReadAll(download)
+		if err != nil {
+			fmt.Errorf("could not read data: %v", err)
+			operationSuccess = false
+		}
 	}
 	return receivedContents, operationSuccess
 }
@@ -174,12 +191,4 @@ func (self Bucket) GetObjectList() []string {
 		objLst = append(objLst, obj.Key)
 	}
 	return objLst
-}
-
-type Server struct {
-	port string
-}
-
-func (self *Server) Run() {
-
 }
