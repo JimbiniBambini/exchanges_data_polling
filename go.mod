@@ -1,4 +1,4 @@
-module exchanges_data_polling
+module github.com/JimbiniBambini/exchanges_data_polling
 
 go 1.14
 
