@@ -566,7 +566,7 @@ func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *Client
 /*
 
 	NEXT Release
-	- add variables for dev and prod versions
+	-+ add variables for dev and prod versions
 	+ add option for multiple clients
 	+ add option to delete clients
 	+ add option to delete workers
@@ -589,7 +589,7 @@ func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *Client
 /* ****************************************** MAIN ****************************************** */
 func main() {
 
-	log.Println(os.Getenv("GIT_DEV"), (os.Getenv("GIT_DEV") == "true"))
+	log.Println("Dev_Env:", os.Getenv("GIT_DEV") == "true")
 	GIT_DEV = (os.Getenv("GIT_DEV") == "true")
 
 	clientManager := NewClientManager()
