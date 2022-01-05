@@ -3,21 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"data_polling/clients/exchanges"
 	"data_polling/clients/storj_client"
 	"data_polling/config"
 	"data_polling/pinger"
 	"encoding/json"
-	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
-	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -30,106 +24,6 @@ var GIT_DEV bool
 
 // exchange --> asset_regular --> fiat --> exchange_specific_asset
 var assetMapping map[string]map[string]map[string]string
-
-/* ****************************************** COMMON FUNCTION/TYPES ****************************************** */
-
-func getSortedFilelistExchange(filesLst []string) []string {
-	// sort numbers
-	re := regexp.MustCompile(`_id_(\d+)`)
-	fileNums := make([]int, 0)
-	for _, val := range filesLst {
-		num, _ := strconv.Atoi(re.FindStringSubmatch(val)[1])
-		fileNums = append(fileNums, num)
-
-	}
-
-	re = regexp.MustCompile(`^(.*?)_id_`)
-	fileBase := re.FindStringSubmatch(filesLst[0])[0]
-	sort.Ints(fileNums)
-	filesSortedLst := make([]string, 0)
-	for _, val := range fileNums {
-		filesSortedLst = append(filesSortedLst, fileBase+strconv.Itoa(val)+".csv")
-	}
-	return filesSortedLst
-}
-
-func calcRequestBodyCheckSum(body []byte) string {
-	h := sha256.New()
-	r := bytes.NewReader(body)
-	if _, err := io.Copy(h, r); err != nil {
-		log.Fatal(err)
-		return ""
-	}
-	var str2ret string
-	for _, val := range h.Sum(nil) {
-		str2ret += strconv.Itoa(int(val))
-	}
-
-	return str2ret
-}
-
-func generateBucketObjectKey(asset string, assetFiat string, exchange string, period int, objectIdx int) string {
-	keyFinal := fmt.Sprintf("%s_%s_%s_period_%d_id_%d.csv", asset, assetFiat, exchange, period, objectIdx)
-
-	return keyFinal
-}
-
-func getSortedFileNamesAndId(files []string) ([]string, []int) {
-	var fileNumbers []int
-	var fileNames []string
-	var fileNameCut []string
-	for _, f := range files {
-		if strings.Contains(f, ".csv") {
-			//fmt.Println(f.Name(), strings.Contains(f.Name(), ".csv"))
-			fileNameCut = strings.Split(strings.Split(f, ".csv")[0], "_")
-			num, _ := strconv.Atoi(fileNameCut[len(fileNameCut)-1])
-			fileNumbers = append(fileNumbers, num)
-			fileNames = append(fileNames, f)
-		}
-	}
-	sort.Ints(fileNumbers)
-	fileNameBase := ""
-	for i, val := range fileNameCut {
-		if i < len(fileNameCut)-1 {
-			fileNameBase += (val + "_")
-		}
-	}
-
-	var fileNamesSorted []string
-	for _, val := range fileNumbers {
-		fileNamesSorted = append(fileNamesSorted, fileNameBase+strconv.Itoa(val)+".csv")
-	}
-
-	return fileNamesSorted, fileNumbers
-}
-
-func getFileNameStructure(fileNameIn string) (string, string) {
-	// Return vars
-	var fileExtension string
-	var baseStructure string
-
-	// Impl
-	stringConstructor := strings.Split(fileNameIn, ".")
-	fileExtension = "." + stringConstructor[len(stringConstructor)-1]
-	var baseNameConstructor string = strings.Split(fileNameIn, fileExtension)[0]
-	fileNameStructureSplit := strings.Split(baseNameConstructor, "_")
-	for _, val := range fileNameStructureSplit[:len(fileNameStructureSplit)-1] {
-		baseStructure += (val + "_")
-	}
-
-	return baseStructure, fileExtension
-}
-
-func generateRandomID(size int) string {
-	rand.Seed(time.Now().UnixNano())
-	min := 0
-	max := 9
-	var randStr string
-	for i := 0; i < size; i++ {
-		randStr += strconv.Itoa(rand.Intn(max-min+1) + min)
-	}
-	return randStr
-}
 
 /* ****************************************** CLIENT IMPLEMENTATION ****************************************** */
 type Client struct {
@@ -151,7 +45,7 @@ func NewClientManager() ClientManager {
 func (clientManager *ClientManager) loginHandler(loginCredentials map[string]string) string {
 	success := "error"
 	mapBytes, _ := json.Marshal(loginCredentials)
-	newID := calcRequestBodyCheckSum(mapBytes)
+	newID := common.calcRequestBodyCheckSum(mapBytes)
 	alreadyAvailable := false
 	for _, cli := range clientManager.clients {
 		if cli.ID == newID {
@@ -208,7 +102,7 @@ func (self *AssetWorker) perform(waitTimeSec int, bucketKey string, storjClient 
 						fileLstAsset = append(fileLstAsset, obj)
 					}
 				}
-				_, idx := getSortedFileNamesAndId(fileLstAsset)
+				_, idx := common.getSortedFileNamesAndId(fileLstAsset)
 
 				// get data from exchange
 				var bytes2Upload []byte = nil
@@ -230,7 +124,7 @@ func (self *AssetWorker) perform(waitTimeSec int, bucketKey string, storjClient 
 				}
 				period, _ := strconv.Atoi(configExchange.DataPeriod) // BINANCE!!!!!! --> is 1m for minute. Others may also differ!!!
 
-				storjClient.Buckets[bucketKey].UploadObject(ctx, bytes2Upload, generateBucketObjectKey(self.Asset, self.Fiat, self.Exchange, period, newIdx), storjClient.Project)
+				storjClient.Buckets[bucketKey].UploadObject(ctx, bytes2Upload, common.generateBucketObjectKey(self.Asset, self.Fiat, self.Exchange, period, newIdx), storjClient.Project)
 
 				// --> repeat after WAIT_TIME
 				log.Println("worker_id:", self.ID, "next_call_in:", waitTimeSec, "seconds")
@@ -328,7 +222,7 @@ func manageClients(w http.ResponseWriter, r *http.Request, clientManager *Client
 			filesSortedLst := make([]string, 0)
 
 			if len(filesLst) != 0 {
-				filesSortedLst = getSortedFilelistExchange(filesLst)
+				filesSortedLst = common.getSortedFilelistExchange(filesLst)
 			}
 			commandHandler.Response = filesSortedLst
 		}
@@ -491,7 +385,7 @@ func manageWorkers(w http.ResponseWriter, r *http.Request, clientManager *Client
 			// add worker to a specific client
 			if commandHandler.Command == "add_worker" {
 				mapBytes, _ := json.Marshal(commandHandler.Worker)
-				newID := calcRequestBodyCheckSum(mapBytes)
+				newID := common.calcRequestBodyCheckSum(mapBytes)
 
 				if _, ok := clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey]; !ok {
 					clientManager.clients[commandHandler.ClientId].workers[commandHandler.BucketKey] = make(map[string]*AssetWorker)
