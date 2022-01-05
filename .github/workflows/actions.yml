@@ -1,6 +1,8 @@
 name: env_setup
 on: [pull_request, push] 
-branches: [main, dev]
+branches: 
+  - main
+  - dev
 
 
 env:
