@@ -1,0 +1,10 @@
+name: env_setup_dev
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+
+env:
+  GIT_DEV: true
