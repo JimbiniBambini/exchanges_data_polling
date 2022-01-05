@@ -2,10 +2,10 @@ package client_manager
 
 import (
 	"context"
-	"data_polling/clients/storj_client"
-	"data_polling/common"
-	"data_polling/workers"
 	"encoding/json"
+	"exchanges_data_polling/clients/storj_client"
+	"exchanges_data_polling/common"
+	"exchanges_data_polling/workers"
 )
 
 /* ****************************************** CLIENT IMPLEMENTATION ****************************************** */

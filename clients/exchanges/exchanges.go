@@ -2,9 +2,9 @@ package exchanges
 
 import (
 	"bytes"
-	"data_polling/config"
 	"encoding/gob"
 	"encoding/json"
+	"exchanges_data_polling/config"
 	"fmt"
 	"io/ioutil"
 	"log"
