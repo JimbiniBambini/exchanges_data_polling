@@ -23,17 +23,6 @@ var assetMapping map[string]map[string]map[string]string
 /*
 
 	NEXT Release
-	-+ add variables for dev and prod versions
-	+ add option for multiple clients
-	+ add option to delete clients
-	+ add option to delete workers
-	+ start/stop workers
-	+ check with multiple workers
-	+ list all available buckets in client
-	+ list all available files in bucket
-	- api to upload files
-
-	NEXT Release
 	- correct the issue with panic, while downloading non existing file
 	- add download scheme and proper api for exchanges (at least kraken)
 	- check the option for separate maps for clients and workers (workers can be accessed via client id as a map key) --> better scalability?
@@ -82,6 +71,10 @@ func main() {
 	})
 
 	if GIT_DEV {
+		r.HandleFunc("/storj_client_ini_upload", func(w http.ResponseWriter, r *http.Request) {
+			api_manager.Uploader(w, r, &clientManager)
+		})
+
 		pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
 	} else {
 		pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 1)

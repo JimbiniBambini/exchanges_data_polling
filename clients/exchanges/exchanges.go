@@ -11,8 +11,32 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 )
 
+/* KRAKEN */
+func ConvertCsvBytes(data []byte, dir2write string) []string {
+	//header := make([]string, 0)
+
+	for idx, line := range strings.Split(string(data), "\n") {
+
+		if idx == 0 {
+			//		header = strings.Split(line, ",")
+		}
+		if len(line) != 0 {
+
+		}
+	}
+
+	if len(dir2write) > 0 {
+		// write the whole body at once
+		err := ioutil.WriteFile(dir2write, data, 0644)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return strings.Split(string(data), "\n")
+}
 func exchangeResponseToCsv(data []byte, pair string, exchangeConfig config.ExchangeConfig) []byte {
 
 	exchangeDataSchemeExtractor := make(map[string]map[string][][]interface{})
