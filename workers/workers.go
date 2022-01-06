@@ -2,10 +2,10 @@ package workers
 
 import (
 	"context"
-	"exchanges_data_polling/clients/exchanges"
-	"exchanges_data_polling/clients/storj_client"
-	"exchanges_data_polling/common"
-	"exchanges_data_polling/config"
+	"data_polling/exchanges_data_polling/clients/exchanges"
+	"data_polling/exchanges_data_polling/clients/storj_client"
+	"data_polling/exchanges_data_polling/common"
+	"data_polling/exchanges_data_polling/config"
 	"log"
 	"strconv"
 	"strings"

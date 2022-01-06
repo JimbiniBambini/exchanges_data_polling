@@ -1,4 +1,4 @@
-module exchanges_data_polling
+module data_polling/exchanges_data_polling
 
 go 1.14
 
