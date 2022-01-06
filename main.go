@@ -1,5 +1,7 @@
 package main
 
+//module github.com/JimbiniBambini/exchanges_data_polling **latest**
+
 import (
 	"bytes"
 	"context"
