@@ -1,7 +1,6 @@
 {
     "kraken":{
         "api": "https://api.kraken.com/0/public/OHLC",
-        "assets":["XXBTZUSD", "ADAUSD"],
         "data_key": "result",
         "data_period": "1",
         "api_keys": ["pair", "interval"],
@@ -18,7 +17,6 @@
     },
     "binance":{
         "api":"empty",
-        "assets":"empty",
         "data_key":"empty",
         "data_period": "1m",
         "api_keys": ["symbol", "interval"],

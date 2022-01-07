@@ -6,6 +6,7 @@ import (
 	"data_polling/exchanges_data_polling/clients/storj_client"
 	"data_polling/exchanges_data_polling/common"
 	"data_polling/exchanges_data_polling/config"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -50,13 +51,9 @@ func (self *AssetWorker) Perform(waitTimeSec int, bucketKey string, storjClient 
 				var bytes2Upload []byte = nil
 
 				configExchange := config.NewExchangeConfig(self.Exchange)
-				// fmt.Println("Worker", self)
-				// fmt.Println("Exchange Config", configExchange)
-				for _, assetExchange := range configExchange.Assets {
-					if assetExchange == assetMapping[self.Exchange][self.Asset][self.Fiat] {
-						// fmt.Println("HERE AFTER CONFIG", assetMapping)
-						bytes2Upload = exchanges.GetExchangeDataCsvByte(assetExchange, *configExchange)
-					}
+				if assetExchange, ok := assetMapping[self.Asset][self.Fiat][self.Exchange]; ok {
+					fmt.Println("HERE AFTER CONFIG", assetMapping)
+					bytes2Upload = exchanges.GetExchangeDataCsvByte(assetExchange, *configExchange)
 				}
 
 				// upload

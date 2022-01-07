@@ -321,7 +321,7 @@ func ManageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client
 				commandHandler.Response = clientManager.Clients[commandHandler.ClientId].Workers
 			}
 			if commandHandler.Command == "list_workers_bucket" {
-				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
+				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey]; ok {
 					commandHandler.Response = clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey]
 				} else {
 					commandHandler.Response = "error"

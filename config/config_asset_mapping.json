@@ -1,0 +1,65 @@
+{
+    
+    "assets":
+    [
+        {
+            "name": "btc",
+            "fiat": "usd",
+            "mapping": [
+                {
+                    "exchange":"kraken",
+                    "mapped_name": "XXBTZUSD"
+                    },
+                {
+                    "exchange":"binance",
+                    "mapped_name": "btcusdt"
+                    }
+            ]
+        }, 
+
+        {
+            "name": "ada",
+            "fiat": "usd",
+            "mapping": [
+                {
+                    "exchange":"kraken",
+                    "mapped_name": "ADAUSD"
+                    }
+            ]
+        },
+
+        {
+            "name": "dot",
+            "fiat": "usd",
+            "mapping": [
+                {
+                    "exchange":"kraken",
+                    "mapped_name": "DOTUSD"
+                    }
+            ]
+        },
+
+        {
+            "name": "ksm",
+            "fiat": "usd",
+            "mapping": [
+                {
+                    "exchange":"kraken",
+                    "mapped_name": "KSMUSD"
+                    }
+            ]
+        },
+
+        {
+            "name": "kava",
+            "fiat": "usd",
+            "mapping": [
+                {
+                    "exchange":"kraken",
+                    "mapped_name": "KAVAUSD"
+                    }
+            ]
+        }
+    ]
+
+}

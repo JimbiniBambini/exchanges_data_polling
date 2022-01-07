@@ -42,14 +42,6 @@ func exchangeResponseToCsv(data []byte, pair string, exchangeConfig config.Excha
 	exchangeDataSchemeExtractor := make(map[string]map[string][][]interface{})
 	json.Unmarshal(data, &exchangeDataSchemeExtractor)
 
-	// exchangeDataSchemeExtractor[exchangeConfig.DataKey] = make(map[string][][]interface{}, 3)
-	// tst := [3]int{1, 2, 3}
-	// for idx, _ := range tst {
-	// 	fmt.Println(idx)
-	// 	exchangeDataSchemeExtractor[exchangeConfig.DataKey][pair] = append(exchangeDataSchemeExtractor[exchangeConfig.DataKey][pair], []interface{}{idx + 1, idx + 2, idx + 3})
-	// }
-	//fmt.Println(exchangeDataSchemeExtractor[exchangeConfig.DataKey][pair])
-
 	var strConcat string
 	for _, valsOuter := range exchangeDataSchemeExtractor[exchangeConfig.DataKey][pair] {
 		for idx, valsInner := range valsOuter {
