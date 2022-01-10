@@ -58,8 +58,8 @@ func PingWorker(urls []string, timerMinCnt int) {
 	for _, url := range urls {
 		go func(urlIn string) {
 			for {
-				time.Sleep(time.Duration(timerMinCnt) * time.Minute)
 				OutgoingMessageHandler(urlIn)
+				time.Sleep(time.Duration(timerMinCnt) * time.Minute)
 			}
 		}(url)
 	}
