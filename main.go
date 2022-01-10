@@ -6,7 +6,6 @@ import (
 	"data_polling/exchanges_data_polling/config"
 	"data_polling/exchanges_data_polling/managers/api_manager"
 	"data_polling/exchanges_data_polling/managers/client_manager"
-	"data_polling/exchanges_data_polling/pinger"
 	"log"
 	"net/http"
 	"os"
@@ -70,20 +69,20 @@ func main() {
 		api_manager.ManageWorkers(w, r, &clientManager, assetMapping)
 	})
 
-	r.HandleFunc("/ping_in", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("incoming message", w)
-		pinger.IncomingMessageHandler(w, r)
-	})
+	// r.HandleFunc("/ping_in", func(w http.ResponseWriter, r *http.Request) {
+	// 	log.Println("incoming message", w)
+	// 	pinger.IncomingMessageHandler(w, r)
+	// })
 
-	if GIT_DEV {
-		r.HandleFunc("/storj_client_ini_upload", func(w http.ResponseWriter, r *http.Request) {
-			api_manager.Uploader(w, r, &clientManager)
-		})
+	// if GIT_DEV {
+	// 	r.HandleFunc("/storj_client_ini_upload", func(w http.ResponseWriter, r *http.Request) {
+	// 		api_manager.Uploader(w, r, &clientManager)
+	// 	})
 
-		pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
-	} else {
-		pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 15)
-	}
+	// 	pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
+	// } else {
+	// 	pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 15)
+	// }
 
 	port := os.Getenv("PORT")
 	if port == "" {
