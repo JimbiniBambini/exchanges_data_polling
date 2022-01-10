@@ -107,6 +107,7 @@ func ManageClients(w http.ResponseWriter, r *http.Request, clientManager *client
 
 	}
 
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", commandHandler.Response)
 	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 
@@ -167,6 +168,8 @@ func ManageBuckets(w http.ResponseWriter, r *http.Request, clientManager *client
 			commandHandler.Response = bucketKeyLst
 		}
 	}
+
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", commandHandler.Response)
 	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 
@@ -231,6 +234,8 @@ func ManageFiles(w http.ResponseWriter, r *http.Request, clientManager *client_m
 			}
 		}
 	}
+
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", commandHandler.Response)
 	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 
@@ -331,6 +336,8 @@ func ManageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client
 	} else {
 		commandHandler.Response = "error"
 	}
+
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", commandHandler.Response)
 	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 
@@ -370,6 +377,7 @@ func Uploader(w http.ResponseWriter, r *http.Request, clientManager *client_mana
 		}
 	}
 
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", commandHandler.Response)
 	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 

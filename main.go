@@ -21,6 +21,7 @@ var GIT_DEV bool
 /*
 
 	NEXT Release
+	- list clients only in dev branch
 	- start using channels for client/worket managers
 	- correct the issue with panic, while downloading non existing file
 	- add download scheme and proper api for exchanges (at least kraken)
@@ -30,7 +31,7 @@ var GIT_DEV bool
 	- add option for clients with multiple buckets at the same time
 	- add further exchanges and assets
 	- add option to filter exchange, asset, combine
-	- ADD PROPER CONFIG FOR ASSETS
+	+ ADD PROPER CONFIG FOR ASSETS
 	- ADD CONCAT-FILE ROUTINE AND A BUCKET FOR IT
 */
 
@@ -81,7 +82,7 @@ func main() {
 
 		pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
 	} else {
-		pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 1)
+		pinger.PingWorker([]string{"https://data-polling.herokuapp.com/ping_in"}, 15)
 	}
 
 	port := os.Getenv("PORT")
