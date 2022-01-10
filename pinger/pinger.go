@@ -54,6 +54,8 @@ func IncomingMessageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func PingWorker(urls []string, timerMinCnt int) {
+	// Wait for server to start
+	time.Sleep(time.Duration(10) * time.Second)
 	// create endless routine for every url
 	for _, url := range urls {
 		go func(urlIn string) {
