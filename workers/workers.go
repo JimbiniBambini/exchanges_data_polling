@@ -6,7 +6,6 @@ import (
 	"data_polling/exchanges_data_polling/clients/storj_client"
 	"data_polling/exchanges_data_polling/common"
 	"data_polling/exchanges_data_polling/config"
-	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -40,7 +39,6 @@ func (self *AssetWorker) Perform(waitTimeSec int, bucketKey string, storjClient 
 				storjClient.UpdateClient(ctx)
 				fileLstAsset := make([]string, 0)
 				for _, obj := range storjClient.Buckets[bucketKey].GetObjectList() {
-					//fmt.Println("HERE1:", obj)
 					if strings.Contains(obj, self.Asset) && strings.Contains(obj, self.Fiat) && strings.Contains(obj, self.Exchange) {
 						fileLstAsset = append(fileLstAsset, obj)
 					}
@@ -52,7 +50,6 @@ func (self *AssetWorker) Perform(waitTimeSec int, bucketKey string, storjClient 
 
 				configExchange := config.NewExchangeConfig(self.Exchange)
 				if assetExchange, ok := assetMapping[self.Asset][self.Fiat][self.Exchange]; ok {
-					fmt.Println("HERE AFTER CONFIG", assetMapping)
 					bytes2Upload = exchanges.GetExchangeDataCsvByte(assetExchange, *configExchange)
 				}
 

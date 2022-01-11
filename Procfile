@@ -1,0 +1,1 @@
+web: bin/exchanges_data_polling

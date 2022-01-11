@@ -327,7 +327,15 @@ func ManageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client
 			}
 			if commandHandler.Command == "list_workers_bucket" {
 				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey]; ok {
-					commandHandler.Response = clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey]
+					type WorkersBucket struct {
+						Workers []workers.AssetWorker `json:"workers"`
+					}
+					var workers WorkersBucket
+					for _, worker := range clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey] {
+						workers.Workers = append(workers.Workers, *worker)
+					}
+
+					commandHandler.Response = workers
 				} else {
 					commandHandler.Response = "error"
 				}
