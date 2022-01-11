@@ -30,15 +30,6 @@ func OutgoingMessageHandler(url string) {
 		log.Fatalln(err)
 	}
 
-	// body, err := ioutil.ReadAll(resp.Body)
-	// if err != nil {
-	// 	log.Println("OutgoingMessage --> Error while reading request body")
-	// }
-
-	// var unpackedMsg RequestFrame
-	// json.Unmarshal(body, &unpackedMsg)
-
-	// log.Println("OutgoingMessage --> Sent message to:", url, "Response:", unpackedMsg.Msg)
 	log.Println("OutgoingMessage --> Sent message to:", url)
 }
 
@@ -55,8 +46,9 @@ func IncomingMessageHandler(w http.ResponseWriter, r *http.Request) {
 
 func PingWorker(urls []string, timerMinCnt int) {
 	// Wait for server to start
-	time.Sleep(time.Duration(10) * time.Second)
-	// create endless routine for every url
+	time.Sleep(time.Duration(100) * time.Second)
+
+	// Endless loop to ping the server
 	for _, url := range urls {
 		go func(urlIn string) {
 			for {
