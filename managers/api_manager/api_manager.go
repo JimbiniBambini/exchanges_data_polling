@@ -206,8 +206,8 @@ func ManageFiles(w http.ResponseWriter, r *http.Request, clientManager *client_m
 	/* ********************* POST ********************* */
 	case http.MethodPost:
 		if commandHandler.Command == "add_bucket_file" {
-			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
-			clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].UploadObject(ctx, []byte{1, 2, 3}, commandHandler.FileKey, clientManager.Clients[commandHandler.ClientId].StorjClient.Project)
+			//clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
+			//clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].UploadObject(ctx, []byte{1, 2, 3}, commandHandler.FileKey, clientManager.Clients[commandHandler.ClientId].StorjClient.Project)
 			//BUCKET.UploadObject(ctx, commandHandler.Data, commandHandler.FileKey, project)
 
 		}
