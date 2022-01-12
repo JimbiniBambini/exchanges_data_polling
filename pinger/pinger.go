@@ -45,12 +45,12 @@ func IncomingMessageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func PingWorker(urls []string, timerMinCnt int) {
-	// Wait for server to start
-	time.Sleep(time.Duration(100) * time.Second)
 
 	// Endless loop to ping the server
 	for _, url := range urls {
 		go func(urlIn string) {
+			// Wait for server to start
+			time.Sleep(time.Duration(100) * time.Second)
 			for {
 				OutgoingMessageHandler(urlIn)
 				time.Sleep(time.Duration(timerMinCnt) * time.Minute)

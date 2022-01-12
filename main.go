@@ -7,6 +7,7 @@ import (
 	"data_polling/exchanges_data_polling/managers/api_manager"
 	"data_polling/exchanges_data_polling/managers/client_manager"
 	"data_polling/exchanges_data_polling/pinger"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -38,17 +39,10 @@ var GIT_DEV bool
 /* ****************************************** MAIN ****************************************** */
 func main() {
 
-	log.Println("Dev_Env:", os.Getenv("GIT_DEV") == "true")
 	GIT_DEV = (os.Getenv("GIT_DEV") == "true")
+	log.Println("Dev_Env:", GIT_DEV)
 
 	clientManager := client_manager.NewClientManager()
-
-	// assetMapping = make(map[string]map[string]map[string]string)
-	// assetMapping["kraken"] = make(map[string]map[string]string)
-	// assetMapping["kraken"]["btc"] = make(map[string]string)
-	// assetMapping["kraken"]["btc"]["usd"] = "XXBTZUSD"
-	// assetMapping["kraken"]["ada"] = make(map[string]string)
-	// assetMapping["kraken"]["ada"]["usd"] = "ADAUSD"
 
 	assetMapping := config.GetAssetConfigMap()
 
@@ -73,6 +67,11 @@ func main() {
 	r.HandleFunc("/ping_in", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("incoming message", w)
 		pinger.IncomingMessageHandler(w, r)
+	})
+
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+
+		fmt.Fprint(w, "The day will come, and this page will be updated!")
 	})
 
 	if GIT_DEV {
