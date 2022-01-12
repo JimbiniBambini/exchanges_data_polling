@@ -1,1 +1,1 @@
-web: data-polling
+web: exchanges_data_polling
