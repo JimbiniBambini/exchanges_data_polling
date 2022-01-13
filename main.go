@@ -21,12 +21,13 @@ var GIT_DEV bool
 /* ****************************************** TODO ****************************************** */
 /*
 
-	NEXT Release
+	NEXT Releases
 	- list clients only in dev branch
 	- start using channels for client/worket managers
 	- correct the issue with panic, while downloading non existing file
 	- add download scheme and proper api for exchanges (at least kraken)
 	- multiple files download
+	- add timestamp for each worker, after data was fetched
 	- check the option for separate maps for clients and workers (workers can be accessed via client id as a map key) --> better scalability?
 	- switch to new architecture with separate module for APi to clean the main module
 	- add option for clients with multiple buckets at the same time
@@ -69,15 +70,18 @@ func main() {
 		pinger.IncomingMessageHandler(w, r)
 	})
 
-	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-
-		fmt.Fprint(w, "The day will come, and this page will be updated!")
+	r.HandleFunc("/client_status", func(w http.ResponseWriter, r *http.Request) {
+		// client_id
+		// buckets
+		// workers
+		// last files from each bucket bucket
+		fmt.Fprint(w, api_manager.StatusManager(w, r, &clientManager))
 	})
 
 	if GIT_DEV {
-		r.HandleFunc("/storj_client_ini_upload", func(w http.ResponseWriter, r *http.Request) {
-			api_manager.Uploader(w, r, &clientManager)
-		})
+		// 	r.HandleFunc("/storj_client_ini_upload", func(w http.ResponseWriter, r *http.Request) {
+		// 		api_manager.Uploader(w, r, &clientManager)
+		// 	})
 
 		pinger.PingWorker([]string{"http://127.0.0.1:8088/ping_in"}, 1)
 	} else {

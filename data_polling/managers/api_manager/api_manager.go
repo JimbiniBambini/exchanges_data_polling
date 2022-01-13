@@ -10,16 +10,21 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"sort"
-	"strconv"
-	"strings"
 
 	"data_polling/exchanges_data_polling/managers/client_manager"
-
-	"data_polling/exchanges_data_polling/clients/storj_client"
 )
 
 /* ****************************************** API COMMON ****************************************** */
+func readBody(structIn interface{}, w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println("Error while reading request body")
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	err = decoder.Decode(&structIn)
+
+}
 
 type Commander struct {
 	Command   string      `json:"command"`
@@ -323,7 +328,11 @@ func ManageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client
 		case http.MethodGet:
 			// list all workers assigned to a specific client
 			if commandHandler.Command == "list_workers_all" {
-				commandHandler.Response = clientManager.Clients[commandHandler.ClientId].Workers
+				if len(clientManager.Clients[commandHandler.ClientId].Workers) != 0 {
+					commandHandler.Response = clientManager.Clients[commandHandler.ClientId].Workers
+				} else {
+					commandHandler.Response = make([]workers.AssetWorker, 0)
+				}
 			}
 			if commandHandler.Command == "list_workers_bucket" {
 				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey]; ok {
@@ -337,7 +346,7 @@ func ManageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client
 
 					commandHandler.Response = workers
 				} else {
-					commandHandler.Response = "error"
+					commandHandler.Response = make([]workers.AssetWorker, 0)
 				}
 			}
 		}
@@ -349,88 +358,55 @@ func ManageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client
 	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 
-func Uploader(w http.ResponseWriter, r *http.Request, clientManager *client_manager.ClientManager) {
-	type CommanderUploader struct {
-		Commander
-		Worker    workers.AssetWorker `json:"worker"`
-		DirFolder string              `json:"dir_folder"`
-		Separator string              `json:"file_sep"`
-	}
-	var endpoint string = "storj_client_ini_upload"
+type CommanderStatus struct {
+	Commander
+	Filters []string `json:"filters"`
+}
 
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Println("Error while reading request body")
-	}
+type Responder struct {
+	ClientId        string   `json:"client_id"`
+	Buckets         []string `json:"buckets"`
+	Workers         []string `json:"workers"`
+	WorkerAssets    []string `json:"worker_assets"`
+	LastFilesBucket []string `json:"last_files_in_bucket"` // UPDATE!
+}
 
-	var commandHandler CommanderUploader
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	err = decoder.Decode(&commandHandler)
+func StatusManager(w http.ResponseWriter, r *http.Request, clientManager *client_manager.ClientManager) Responder {
 
-	ctx := context.Background()
+	var endpoint string = "storj_client_status_page"
 
-	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey, "WORKER_ID", commandHandler.Worker.ID)
-	log.Println(commandHandler)
-	if _, ok := clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey]; ok {
+	var responseHandler Responder
+
+	var commandHandler CommanderStatus
+	readBody(&commandHandler, w, r)
+
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey)
+
+	if _, ok := clientManager.Clients[commandHandler.ClientId]; ok {
 		switch r.Method {
 		/* ********************* POST ********************* */
 		case http.MethodPost:
-			if commandHandler.Command == "ini_upload" {
-				periodConv, _ := strconv.Atoi(commandHandler.Worker.Period)
-				commandHandler.Response = uploadDataFromFolder(ctx, commandHandler.DirFolder,
-					&clientManager.Clients[commandHandler.ClientId].StorjClient, commandHandler.BucketKey,
-					commandHandler.Worker.Asset, commandHandler.Worker.Fiat, commandHandler.Worker.Exchange, periodConv,
-					commandHandler.Separator)
+			if commandHandler.Command == "get_client_status" {
+				responseHandler.ClientId = commandHandler.ClientId
+				for _, bucket := range clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets {
+					responseHandler.Buckets = append(responseHandler.Buckets, bucket.Key)
+				}
+			}
+			if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey]; ok {
+				for _, worker := range clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey] {
+					responseHandler.Workers = append(responseHandler.Workers, worker.ID)
+					responseHandler.WorkerAssets = append(responseHandler.WorkerAssets, worker.Asset+worker.Fiat)
+				}
+			}
+
+			if _, ok := clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey]; ok {
+				responseHandler.LastFilesBucket = clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].GetFilteredObjectList(commandHandler.Filters)
 			}
 		}
 	}
 
-	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", commandHandler.Response)
-	json.NewEncoder(w).Encode(commandHandler.Response)
-}
+	commandHandler.Response = responseHandler
+	// json.NewEncoder(w).Encode(commandHandler.Response)
 
-func uploadDataFromFolder(ctx context.Context, dirFolder string, client *storj_client.StorjClient, bucketKey string, asset string, fiat string, exchange string, period int, separatorPath string) bool {
-	success := true
-
-	files, err := ioutil.ReadDir(dirFolder)
-	if err != nil {
-		log.Fatal(err)
-		success = false
-	}
-
-	var fileNumbers []int
-	var fileNames []string
-	var fileNameCut []string
-
-	for _, f := range files {
-		if strings.Contains(f.Name(), ".csv") {
-			fileNameCut = strings.Split(strings.Split(f.Name(), ".csv")[0], "_")
-			num, _ := strconv.Atoi(fileNameCut[len(fileNameCut)-1])
-			fileNumbers = append(fileNumbers, num)
-			fileNames = append(fileNames, f.Name())
-
-		}
-	}
-	sort.Ints(fileNumbers)
-	fileNameBase := ""
-	for i, val := range fileNameCut {
-		if i < len(fileNameCut)-1 {
-			fileNameBase += (val + "_")
-		}
-	}
-	var fileNamesSorted []string
-	for _, val := range fileNumbers {
-		fileNamesSorted = append(fileNamesSorted, fileNameBase+strconv.Itoa(val)+".csv")
-	}
-	for idx, fileName := range fileNamesSorted {
-		log.Println("Uploading file:", idx+1, "Total Files:", len(fileNamesSorted), "Current Filename:", fileName)
-
-		b, err := ioutil.ReadFile(dirFolder + separatorPath + fileName)
-		if err != nil {
-			log.Print(err)
-			success = false
-		}
-		success = client.Buckets[bucketKey].UploadObject(ctx, b, common.GenerateBucketObjectKey(asset, fiat, exchange, period, idx), client.Project)
-	}
-	return success
+	return responseHandler
 }

@@ -2,13 +2,21 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
+	"strconv"
+	"strings"
 
+	"github.com/JimbiniBambini/exchanges_data_polling/clients/storj_client"
+	"github.com/JimbiniBambini/exchanges_data_polling/common"
+	"github.com/JimbiniBambini/exchanges_data_polling/managers/client_manager"
+	"github.com/JimbiniBambini/exchanges_data_polling/workers"
 	"github.com/gorilla/mux"
 )
 
@@ -36,17 +44,6 @@ func extractBetweenQuotes(strIn string) string {
 	newStr := re.FindAllString(strIn, -1)[0]
 
 	return newStr[1 : len(newStr)-1]
-}
-
-func readBody(structIn interface{}, w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Println("Error while reading request body")
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	err = decoder.Decode(&structIn)
-
 }
 
 type Commander struct {
@@ -218,6 +215,92 @@ func (self *ClientRunner) workerRunner(w http.ResponseWriter, r *http.Request, r
 		}
 
 	}
+}
+
+func Uploader(w http.ResponseWriter, r *http.Request, clientManager *client_manager.ClientManager) {
+	type CommanderUploader struct {
+		Commander
+		Worker    workers.AssetWorker `json:"worker"`
+		DirFolder string              `json:"dir_folder"`
+		Separator string              `json:"file_sep"`
+	}
+	var endpoint string = "storj_client_ini_upload"
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println("Error while reading request body")
+	}
+
+	var commandHandler CommanderUploader
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	err = decoder.Decode(&commandHandler)
+
+	ctx := context.Background()
+
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey, "WORKER_ID", commandHandler.Worker.ID)
+
+	if _, ok := clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey]; ok {
+		switch r.Method {
+		/* ********************* POST ********************* */
+		case http.MethodPost:
+			if commandHandler.Command == "ini_upload" {
+				periodConv, _ := strconv.Atoi(commandHandler.Worker.Period)
+				commandHandler.Response = uploadDataFromFolder(ctx, commandHandler.DirFolder,
+					&clientManager.Clients[commandHandler.ClientId].StorjClient, commandHandler.BucketKey,
+					commandHandler.Worker.Asset, commandHandler.Worker.Fiat, commandHandler.Worker.Exchange, periodConv,
+					commandHandler.Separator)
+			}
+		}
+	}
+
+	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", commandHandler.Response)
+	json.NewEncoder(w).Encode(commandHandler.Response)
+}
+
+func uploadDataFromFolder(ctx context.Context, dirFolder string, client *storj_client.StorjClient, bucketKey string, asset string, fiat string, exchange string, period int, separatorPath string) bool {
+	success := true
+
+	files, err := ioutil.ReadDir(dirFolder)
+	if err != nil {
+		log.Fatal(err)
+		success = false
+	}
+
+	var fileNumbers []int
+	var fileNames []string
+	var fileNameCut []string
+
+	for _, f := range files {
+		if strings.Contains(f.Name(), ".csv") {
+			fileNameCut = strings.Split(strings.Split(f.Name(), ".csv")[0], "_")
+			num, _ := strconv.Atoi(fileNameCut[len(fileNameCut)-1])
+			fileNumbers = append(fileNumbers, num)
+			fileNames = append(fileNames, f.Name())
+
+		}
+	}
+	sort.Ints(fileNumbers)
+	fileNameBase := ""
+	for i, val := range fileNameCut {
+		if i < len(fileNameCut)-1 {
+			fileNameBase += (val + "_")
+		}
+	}
+	var fileNamesSorted []string
+	for _, val := range fileNumbers {
+		fileNamesSorted = append(fileNamesSorted, fileNameBase+strconv.Itoa(val)+".csv")
+	}
+	for idx, fileName := range fileNamesSorted {
+		log.Println("Uploading file:", idx+1, "Total Files:", len(fileNamesSorted), "Current Filename:", fileName)
+
+		b, err := ioutil.ReadFile(dirFolder + separatorPath + fileName)
+		if err != nil {
+			log.Print(err)
+			success = false
+		}
+		success = client.Buckets[bucketKey].UploadObject(ctx, b, common.GenerateBucketObjectKey(asset, fiat, exchange, period, idx), client.Project)
+	}
+	return success
 }
 
 func main() {
