@@ -3,14 +3,15 @@ package main
 //module github.com/JimbiniBambini/exchanges_data_polling **latest**
 
 import (
-	"data_polling/config"
-	"data_polling/managers/api_manager"
-	"data_polling/managers/client_manager"
-	"data_polling/pinger"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/JimbiniBambini/exchanges_data_polling/data_polling/config"
+	"github.com/JimbiniBambini/exchanges_data_polling/data_polling/managers/api_manager"
+	"github.com/JimbiniBambini/exchanges_data_polling/data_polling/managers/client_manager"
+	"github.com/JimbiniBambini/exchanges_data_polling/data_polling/pinger"
 
 	"github.com/gorilla/mux"
 )
