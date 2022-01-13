@@ -3,10 +3,10 @@ package main
 //module github.com/JimbiniBambini/exchanges_data_polling **latest**
 
 import (
-	"data_polling/exchanges_data_polling/config"
-	"data_polling/exchanges_data_polling/managers/api_manager"
-	"data_polling/exchanges_data_polling/managers/client_manager"
-	"data_polling/exchanges_data_polling/pinger"
+	"data_polling/config"
+	"data_polling/managers/api_manager"
+	"data_polling/managers/client_manager"
+	"data_polling/pinger"
 	"fmt"
 	"log"
 	"net/http"
