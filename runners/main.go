@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/JimbiniBambini/exchanges_data_polling/data_polling/config"
-	"github.com/JimbiniBambini/exchanges_data_polling/data_polling/managers/api_manager"
-	"github.com/JimbiniBambini/exchanges_data_polling/data_polling/managers/client_manager"
-	"github.com/JimbiniBambini/exchanges_data_polling/data_polling/pinger"
+	"github.com/JimbiniBambini/exchanges_data_polling/config"
+	"github.com/JimbiniBambini/exchanges_data_polling/managers/api_manager"
+	"github.com/JimbiniBambini/exchanges_data_polling/managers/client_manager"
+	"github.com/JimbiniBambini/exchanges_data_polling/pinger"
 
 	"github.com/gorilla/mux"
 )

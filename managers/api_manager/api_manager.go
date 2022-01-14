@@ -3,15 +3,14 @@ package api_manager
 import (
 	"bytes"
 	"context"
-	"data_polling/exchanges_data_polling/clients/exchanges"
-	"data_polling/exchanges_data_polling/common"
-	"data_polling/exchanges_data_polling/workers"
 	"encoding/json"
+	"exchanges_data_polling/clients/exchanges"
+	"exchanges_data_polling/common"
+	"exchanges_data_polling/managers/client_manager"
+	"exchanges_data_polling/workers"
 	"io/ioutil"
 	"log"
 	"net/http"
-
-	"data_polling/exchanges_data_polling/managers/client_manager"
 )
 
 /* ****************************************** API COMMON ****************************************** */
