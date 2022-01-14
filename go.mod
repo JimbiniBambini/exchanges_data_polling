@@ -2,7 +2,10 @@ module github.com/JimbiniBambini/exchanges_data_polling
 
 go 1.17
 
-require storj.io/uplink v1.7.1
+require (
+	github.com/gorilla/mux v1.8.0
+	storj.io/uplink v1.7.1
+)
 
 require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
