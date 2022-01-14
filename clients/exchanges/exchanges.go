@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
-	"exchanges_data_polling/config"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -12,6 +11,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/JimbiniBambini/exchanges_data_polling/config"
 )
 
 /* KRAKEN */

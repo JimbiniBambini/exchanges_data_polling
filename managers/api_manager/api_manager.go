@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"exchanges_data_polling/clients/exchanges"
-	"exchanges_data_polling/common"
-	"exchanges_data_polling/managers/client_manager"
-	"exchanges_data_polling/workers"
 	"io/ioutil"
 	"log"
 	"net/http"
+
+	"github.com/JimbiniBambini/exchanges_data_polling/clients/exchanges"
+	"github.com/JimbiniBambini/exchanges_data_polling/common"
+	"github.com/JimbiniBambini/exchanges_data_polling/managers/client_manager"
+	"github.com/JimbiniBambini/exchanges_data_polling/workers"
 )
 
 /* ****************************************** API COMMON ****************************************** */

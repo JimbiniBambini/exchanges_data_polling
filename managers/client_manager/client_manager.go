@@ -3,9 +3,10 @@ package client_manager
 import (
 	"context"
 	"encoding/json"
-	"exchanges_data_polling/clients/storj_client"
-	"exchanges_data_polling/common"
-	"exchanges_data_polling/workers"
+
+	"github.com/JimbiniBambini/exchanges_data_polling/clients/storj_client"
+	"github.com/JimbiniBambini/exchanges_data_polling/common"
+	"github.com/JimbiniBambini/exchanges_data_polling/workers"
 )
 
 /* ****************************************** CLIENT IMPLEMENTATION ****************************************** */

@@ -2,14 +2,15 @@ package workers
 
 import (
 	"context"
-	"exchanges_data_polling/clients/exchanges"
-	"exchanges_data_polling/clients/storj_client"
-	"exchanges_data_polling/common"
-	"exchanges_data_polling/config"
 	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/JimbiniBambini/exchanges_data_polling/clients/exchanges"
+	"github.com/JimbiniBambini/exchanges_data_polling/clients/storj_client"
+	"github.com/JimbiniBambini/exchanges_data_polling/common"
+	"github.com/JimbiniBambini/exchanges_data_polling/config"
 )
 
 /* ****************************************** WORKER IMPLEMENTATION ****************************************** */
