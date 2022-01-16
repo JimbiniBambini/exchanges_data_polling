@@ -1,1 +1,1 @@
-web: main/exchanges_data_polling
+web: exchanges_data_polling/main
