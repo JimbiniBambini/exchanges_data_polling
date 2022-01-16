@@ -1,1 +1,1 @@
-web: exchanges_data_polling/bin/main
+web: bin/main
