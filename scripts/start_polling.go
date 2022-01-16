@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -13,9 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/JimbiniBambini/exchanges_data_polling/clients/storj_client"
 	"github.com/JimbiniBambini/exchanges_data_polling/common"
-	"github.com/JimbiniBambini/exchanges_data_polling/managers/client_manager"
+	"github.com/JimbiniBambini/exchanges_data_polling/managers/api_manager"
 	"github.com/JimbiniBambini/exchanges_data_polling/workers"
 	"github.com/gorilla/mux"
 )
@@ -46,9 +44,6 @@ func extractBetweenQuotes(strIn string) string {
 	return newStr[1 : len(newStr)-1]
 }
 
-type Commander struct {
-	Command string `json:"command"`
-}
 type LoginCredentials struct {
 	SateliteKey string `json:"satelite_key"`
 	ApiKey      string `json:"api_key"`
@@ -56,7 +51,7 @@ type LoginCredentials struct {
 }
 
 type LoginCredentialsIf struct {
-	Commander
+	api_manager.Commander
 	LoginData LoginCredentials `json:"login_data"`
 }
 
@@ -64,37 +59,28 @@ func getClientId(w http.ResponseWriter, r *http.Request, baseUrl string) string 
 
 	// get login data from external request over API
 	var reqHandler LoginCredentialsIf
-	readBody(&reqHandler, w, r)
+	api_manager.ReadBody(&reqHandler, w, r)
 
 	api := "storj_client_manager"
 
 	idGetter := sendReq(baseUrl+api, reqHandler, "POST")
 	strResp := extractBetweenQuotes(string(idGetter))
 	if strResp == "error" {
-		strResp = extractBetweenQuotes(string(sendReq(baseUrl+api, Commander{Command: "list_clients"}, "GET")))
+		strResp = extractBetweenQuotes(string(sendReq(baseUrl+api, api_manager.Commander{Command: "list_clients"}, "GET")))
 	}
 
 	return strResp
 }
 
-type AssetWorker struct {
-	ID       string `json:"id"`
-	Asset    string `json:"asset"`
-	Fiat     string `json:"fiat"`
-	Exchange string `json:"exchange"`
-	Period   string `json:"period"`
-	Run      bool   `json:"run"`
-}
-
 type WorkerCommanderIf struct {
-	Commander
-	ClientId      string      `json:"client_id"`
-	BucketKey     string      `json:"bucket_key"`
-	PollPeriodSec int         `json:"poll_period"`
-	Worker        AssetWorker `json:"worker"`
+	api_manager.Commander
+	ClientId      string              `json:"client_id"`
+	BucketKey     string              `json:"bucket_key"`
+	PollPeriodSec int                 `json:"poll_period"`
+	Worker        workers.AssetWorker `json:"worker"`
 }
 
-func addWorker(baseUrl string, clientId string, bucketKey string, worker AssetWorker) string {
+func addWorker(baseUrl string, clientId string, bucketKey string, worker workers.AssetWorker) string {
 
 	var reqHandler WorkerCommanderIf
 
@@ -108,7 +94,7 @@ func addWorker(baseUrl string, clientId string, bucketKey string, worker AssetWo
 
 	if respID == "error" {
 		type WorkersList struct {
-			Workers []AssetWorker `json:"workers`
+			Workers []workers.AssetWorker `json:"workers`
 		}
 
 		var workres WorkersList
@@ -168,7 +154,7 @@ func (self *ClientRunner) addWorkers() {
 
 	for asset, exchangeMap := range workersIdMap {
 		for exchange, _ := range exchangeMap {
-			self.workersId = append(self.workersId, addWorker(self.baseUrl+api, self.clientId, self.bucketKey, AssetWorker{Asset: asset, Fiat: fiat, Exchange: exchange, Period: period}))
+			self.workersId = append(self.workersId, addWorker(self.baseUrl+api, self.clientId, self.bucketKey, workers.AssetWorker{Asset: asset, Fiat: fiat, Exchange: exchange, Period: period}))
 		}
 	}
 }
@@ -197,7 +183,7 @@ func (self *ClientRunner) workerRunner(w http.ResponseWriter, r *http.Request, r
 	if runnerOpti == "start" {
 
 		for _, workerId := range self.workersId {
-			reqHandler.Worker = AssetWorker{
+			reqHandler.Worker = workers.AssetWorker{
 				ID:  workerId,
 				Run: true,
 			}
@@ -207,7 +193,7 @@ func (self *ClientRunner) workerRunner(w http.ResponseWriter, r *http.Request, r
 	} else {
 
 		for _, workerId := range self.workersId {
-			reqHandler.Worker = AssetWorker{
+			reqHandler.Worker = workers.AssetWorker{
 				ID:  workerId,
 				Run: false,
 			}
@@ -217,55 +203,30 @@ func (self *ClientRunner) workerRunner(w http.ResponseWriter, r *http.Request, r
 	}
 }
 
-func Uploader(w http.ResponseWriter, r *http.Request, clientManager *client_manager.ClientManager) {
+func Uploader(w http.ResponseWriter, r *http.Request, baseUrl string, clientId string) {
 	type CommanderUploader struct {
-		Commander
-		Worker    workers.AssetWorker `json:"worker"`
-		DirFolder string              `json:"dir_folder"`
-		Separator string              `json:"file_sep"`
+		api_manager.Commander
+		Worker          workers.AssetWorker `json:"worker"`
+		DirFolder       string              `json:"dir_folder"`
+		OsFileSeparator string              `json:"file_sep"`
 	}
-	var endpoint string = "storj_client_ini_upload"
 
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Println("Error while reading request body")
-	}
+	api := "storj_file_manager"
 
 	var commandHandler CommanderUploader
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	err = decoder.Decode(&commandHandler)
+	api_manager.ReadBody(&commandHandler, w, r)
 
-	ctx := context.Background()
-
-	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey, "WORKER_ID", commandHandler.Worker.ID)
-
-	if _, ok := clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey]; ok {
-		switch r.Method {
-		/* ********************* POST ********************* */
-		case http.MethodPost:
-			if commandHandler.Command == "ini_upload" {
-				periodConv, _ := strconv.Atoi(commandHandler.Worker.Period)
-				commandHandler.Response = uploadDataFromFolder(ctx, commandHandler.DirFolder,
-					&clientManager.Clients[commandHandler.ClientId].StorjClient, commandHandler.BucketKey,
-					commandHandler.Worker.Asset, commandHandler.Worker.Fiat, commandHandler.Worker.Exchange, periodConv,
-					commandHandler.Separator)
-			}
-		}
-	}
-
-	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", commandHandler.Response)
-	json.NewEncoder(w).Encode(commandHandler.Response)
-}
-
-func uploadDataFromFolder(ctx context.Context, dirFolder string, client *storj_client.StorjClient, bucketKey string, asset string, fiat string, exchange string, period int, separatorPath string) bool {
 	success := true
 
-	files, err := ioutil.ReadDir(dirFolder)
+	// get list of available files
+	files, err := ioutil.ReadDir(commandHandler.DirFolder)
+	log.Println(commandHandler.DirFolder)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		success = false
 	}
 
+	// get sorted list of available files
 	var fileNumbers []int
 	var fileNames []string
 	var fileNameCut []string
@@ -280,6 +241,8 @@ func uploadDataFromFolder(ctx context.Context, dirFolder string, client *storj_c
 		}
 	}
 	sort.Ints(fileNumbers)
+
+	// adjust names to match the scheme
 	fileNameBase := ""
 	for i, val := range fileNameCut {
 		if i < len(fileNameCut)-1 {
@@ -290,22 +253,37 @@ func uploadDataFromFolder(ctx context.Context, dirFolder string, client *storj_c
 	for _, val := range fileNumbers {
 		fileNamesSorted = append(fileNamesSorted, fileNameBase+strconv.Itoa(val)+".csv")
 	}
+
+	// perform upload
 	for idx, fileName := range fileNamesSorted {
 		log.Println("Uploading file:", idx+1, "Total Files:", len(fileNamesSorted), "Current Filename:", fileName)
 
-		b, err := ioutil.ReadFile(dirFolder + separatorPath + fileName)
+		b, err := ioutil.ReadFile(commandHandler.DirFolder + commandHandler.OsFileSeparator + fileName)
 		if err != nil {
 			log.Print(err)
 			success = false
+			break
 		}
-		success = client.Buckets[bucketKey].UploadObject(ctx, b, common.GenerateBucketObjectKey(asset, fiat, exchange, period, idx), client.Project)
+		if success {
+			periodConv, _ := strconv.Atoi(commandHandler.Worker.Period)
+			var reqData api_manager.CommanderFiles
+			reqData.Command = commandHandler.Command
+			reqData.ClientId = clientId //commandHandler.ClientId
+			reqData.BucketKey = commandHandler.BucketKey
+			reqData.FileKey = common.GenerateBucketObjectKey(commandHandler.Worker.Asset, commandHandler.Worker.Fiat, commandHandler.Worker.Exchange, periodConv, idx)
+
+			reqData.Data = b
+			sendReq(baseUrl+api, reqData, "POST")
+
+		}
 	}
-	return success
+
+	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 
 func main() {
 
-	var BUCKET string = "test"
+	var BUCKET string = "test-dev"
 	var BASE_URL string = "http://127.0.0.1:8088/"
 
 	var cliRunner ClientRunner
@@ -321,6 +299,10 @@ func main() {
 
 	r.HandleFunc("/stop_workers", func(w http.ResponseWriter, r *http.Request) {
 		cliRunner.workerRunner(w, r, "stop")
+	})
+
+	r.HandleFunc("/ini_upload", func(w http.ResponseWriter, r *http.Request) {
+		Uploader(w, r, BASE_URL, cliRunner.clientId)
 	})
 
 	port := os.Getenv("PORT")

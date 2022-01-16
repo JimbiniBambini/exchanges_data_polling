@@ -15,7 +15,12 @@ import (
 )
 
 /* ****************************************** API COMMON ****************************************** */
-func readBody(structIn interface{}, w http.ResponseWriter, r *http.Request) {
+var operations = map[string]string{
+	"success": "success",
+	"error":   "error",
+}
+
+func ReadBody(structIn interface{}, w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Println("Error while reading request body")
@@ -66,9 +71,9 @@ func ManageClients(w http.ResponseWriter, r *http.Request, clientManager *client
 
 			if _, ok := clientManager.Clients[commandHandler.ClientId]; ok {
 				delete(clientManager.Clients, commandHandler.ClientId)
-				commandHandler.Response = "success"
+				commandHandler.Response = operations["success"]
 			} else {
-				commandHandler.Response = "error"
+				commandHandler.Response = operations["error"]
 			}
 		}
 
@@ -139,9 +144,9 @@ func ManageBuckets(w http.ResponseWriter, r *http.Request, clientManager *client
 		if commandHandler.Command == "add_bucket" {
 			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
 			if clientManager.Clients[commandHandler.ClientId].StorjClient.AddBucket(ctx, commandHandler.BucketKey) {
-				commandHandler.Response = "success"
+				commandHandler.Response = operations["success"]
 			} else {
-				commandHandler.Response = "error"
+				commandHandler.Response = operations["error"]
 			}
 		}
 	/* ********************* DELETE ********************* */
@@ -149,9 +154,9 @@ func ManageBuckets(w http.ResponseWriter, r *http.Request, clientManager *client
 		if commandHandler.Command == "delete_bucket" {
 			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
 			if clientManager.Clients[commandHandler.ClientId].StorjClient.DeleteBucket(ctx, commandHandler.BucketKey, delOption) {
-				commandHandler.Response = "success"
+				commandHandler.Response = operations["success"]
 			} else {
-				commandHandler.Response = "error"
+				commandHandler.Response = operations["error"]
 			}
 		}
 		/* ********************* GET ********************* */
@@ -211,10 +216,12 @@ func ManageFiles(w http.ResponseWriter, r *http.Request, clientManager *client_m
 	/* ********************* POST ********************* */
 	case http.MethodPost:
 		if commandHandler.Command == "add_bucket_file" {
-			//clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
-			//clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].UploadObject(ctx, []byte{1, 2, 3}, commandHandler.FileKey, clientManager.Clients[commandHandler.ClientId].StorjClient.Project)
-			//BUCKET.UploadObject(ctx, commandHandler.Data, commandHandler.FileKey, project)
-
+			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
+			if clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].UploadObject(ctx, commandHandler.Data, commandHandler.FileKey, clientManager.Clients[commandHandler.ClientId].StorjClient.Project) {
+				commandHandler.Response = operations["success"]
+			} else {
+				commandHandler.Response = operations["error"]
+			}
 		}
 		/* ********************* DELETE ********************* */
 	case http.MethodDelete:
@@ -226,7 +233,7 @@ func ManageFiles(w http.ResponseWriter, r *http.Request, clientManager *client_m
 
 				commandHandler.Response = clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].GetObjectList()
 			} else {
-				commandHandler.Response = "error"
+				commandHandler.Response = operations["error"]
 			}
 
 		}
@@ -235,7 +242,7 @@ func ManageFiles(w http.ResponseWriter, r *http.Request, clientManager *client_m
 				exchanges.ConvertCsvBytes(data, commandHandler.DirDownload)
 				commandHandler.Response = string(data)
 			} else {
-				commandHandler.Response = "error"
+				commandHandler.Response = operations["error"]
 			}
 		}
 	}
@@ -285,7 +292,7 @@ func ManageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client
 
 					commandHandler.Response = newID
 				} else {
-					commandHandler.Response = "error"
+					commandHandler.Response = operations["error"]
 				}
 			}
 
@@ -298,17 +305,17 @@ func ManageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client
 							clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID].Perform(commandHandler.DataPollPeriodSec, commandHandler.BucketKey, clientManager.Clients[commandHandler.ClientId].StorjClient, assetMapping)
 							return
 						}()
-						commandHandler.Response = "success"
+						commandHandler.Response = operations["success"]
 					} else {
-						commandHandler.Response = "error"
+						commandHandler.Response = operations["error"]
 					}
 					if !commandHandler.Worker.Run {
 						clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID].RunHandler(false)
-						commandHandler.Response = "success"
+						commandHandler.Response = operations["success"]
 					}
 
 				} else {
-					commandHandler.Response = "error"
+					commandHandler.Response = operations["error"]
 				}
 			}
 
@@ -319,9 +326,9 @@ func ManageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client
 				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
 					clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID].RunHandler(false)
 					delete(clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey], commandHandler.Worker.ID)
-					commandHandler.Response = "success"
+					commandHandler.Response = operations["success"]
 				} else {
-					commandHandler.Response = "error"
+					commandHandler.Response = operations["error"]
 				}
 			}
 			/* ********************* GET ********************* */
@@ -351,7 +358,7 @@ func ManageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client
 			}
 		}
 	} else {
-		commandHandler.Response = "error"
+		commandHandler.Response = operations["error"]
 	}
 
 	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", commandHandler.Response)
@@ -378,7 +385,7 @@ func StatusManager(w http.ResponseWriter, r *http.Request, clientManager *client
 	var responseHandler Responder
 
 	var commandHandler CommanderStatus
-	readBody(&commandHandler, w, r)
+	ReadBody(&commandHandler, w, r)
 
 	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey)
 

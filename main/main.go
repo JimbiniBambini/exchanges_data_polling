@@ -42,7 +42,7 @@ var GIT_DEV bool
 func main() {
 
 	GIT_DEV = (os.Getenv("GIT_DEV") == "true")
-	log.Println("Dev_Env:", GIT_DEV)
+	log.Println("GIT_DEV:", GIT_DEV)
 
 	clientManager := client_manager.NewClientManager()
 
