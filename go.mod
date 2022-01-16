@@ -1,5 +1,5 @@
 module github.com/JimbiniBambini/exchanges_data_polling
-
+// +heroku goVersion go1.17      <--add to
 go 1.17
 
 require (

@@ -167,6 +167,7 @@ func (self *ClientRunner) addWorkers() {
 
 /*
 TODO
+-> set ini_upload to default cliRunner bucket key!
 -> add automatic mapping of assets from main project
 -> (opti) switch to one click approach
 -> switch to secrets for STORJ login credentials
