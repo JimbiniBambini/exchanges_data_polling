@@ -24,6 +24,7 @@ var GIT_DEV bool
 
 	NEXT Releases
 	- list clients only in dev branch
+	- add login routine for every API / Restructure the API idea
 	- start using channels for client/worket managers
 	- correct the issue with panic, while downloading non existing file
 	- add download scheme and proper api for exchanges (at least kraken)

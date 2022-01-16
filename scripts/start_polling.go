@@ -115,16 +115,18 @@ func addWorker(baseUrl string, clientId string, bucketKey string, worker workers
 }
 
 type ClientRunner struct {
-	baseUrl   string
+	BaseUrl   string `json:"base_url"`
 	clientId  string
-	bucketKey string
+	BucketKey string `json:"bucket_key"`
 	workersId []string
 }
 
-func (self *ClientRunner) setup(w http.ResponseWriter, r *http.Request, baseUrl string, bucketKey string) {
-	self.baseUrl = baseUrl
-	self.bucketKey = bucketKey
-	self.clientId = getClientId(w, r, self.baseUrl)
+func (self *ClientRunner) setupGeneral(w http.ResponseWriter, r *http.Request) {
+	api_manager.ReadBody(self, w, r)
+}
+
+func (self *ClientRunner) setupStorj(w http.ResponseWriter, r *http.Request) {
+	self.clientId = getClientId(w, r, self.BaseUrl)
 	self.workersId = make([]string, 0)
 	self.addWorkers()
 }
@@ -146,21 +148,27 @@ func (self *ClientRunner) addWorkers() {
 	workersIdMap["dot"]["kraken"] = "832172382222291502416511129180411711531572552360143981171181361081592256523158232137232"
 	workersIdMap["kava"] = make(map[string]string)
 	workersIdMap["kava"]["kraken"] = "2051042102291019729841486761997322419114185286521128116541981362101614416054295"
+	workersIdMap["algo"] = make(map[string]string)
+	workersIdMap["algo"]["kraken"] = "5312811635216637715941822488816221962121802269177162302211532930230192173412"
+	workersIdMap["flow"] = make(map[string]string)
+	workersIdMap["flow"]["kraken"] = "19235173134188201222495699512111818617188935210229143108151221157661012723131082"
 
 	var reqHandler WorkerCommanderIf
 	reqHandler.Command = "run_worker"
 	reqHandler.ClientId = self.clientId
-	reqHandler.BucketKey = self.bucketKey
+	reqHandler.BucketKey = self.BucketKey
 
 	for asset, exchangeMap := range workersIdMap {
 		for exchange, _ := range exchangeMap {
-			self.workersId = append(self.workersId, addWorker(self.baseUrl+api, self.clientId, self.bucketKey, workers.AssetWorker{Asset: asset, Fiat: fiat, Exchange: exchange, Period: period}))
+			self.workersId = append(self.workersId, addWorker(self.BaseUrl+api, self.clientId, self.BucketKey, workers.AssetWorker{Asset: asset, Fiat: fiat, Exchange: exchange, Period: period}))
 		}
 	}
 }
 
 /*
 TODO
+-> add automatic mapping of assets from main project
+-> (opti) switch to one click approach
 -> switch to secrets for STORJ login credentials
 */
 
@@ -175,19 +183,21 @@ TODO
 func (self *ClientRunner) workerRunner(w http.ResponseWriter, r *http.Request, runnerOpti string) {
 	api := "storj_worker_manager"
 	var reqHandler WorkerCommanderIf
-	reqHandler.Command = "run_worker"
-	reqHandler.ClientId = self.clientId
-	reqHandler.BucketKey = self.bucketKey
-	reqHandler.PollPeriodSec = 10
 
-	if runnerOpti == "start" {
+	api_manager.ReadBody(&reqHandler, w, r)
+	reqHandler.BucketKey = self.BucketKey
+	if runnerOpti == "start_workers" {
+		// overwrite
 
 		for _, workerId := range self.workersId {
+
 			reqHandler.Worker = workers.AssetWorker{
 				ID:  workerId,
 				Run: true,
 			}
-			sendReq(self.baseUrl+api, reqHandler, "POST")
+			log.Println(workerId)
+			log.Println(reqHandler)
+			sendReq(self.BaseUrl+api, reqHandler, "POST")
 		}
 
 	} else {
@@ -197,7 +207,7 @@ func (self *ClientRunner) workerRunner(w http.ResponseWriter, r *http.Request, r
 				ID:  workerId,
 				Run: false,
 			}
-			sendReq(self.baseUrl+api, reqHandler, "POST")
+			sendReq(self.BaseUrl+api, reqHandler, "POST")
 		}
 
 	}
@@ -283,26 +293,27 @@ func Uploader(w http.ResponseWriter, r *http.Request, baseUrl string, clientId s
 
 func main() {
 
-	var BUCKET string = "test-dev"
-	var BASE_URL string = "http://127.0.0.1:8088/"
-
 	var cliRunner ClientRunner
 	r := mux.NewRouter()
-	r.HandleFunc("/setup", func(w http.ResponseWriter, r *http.Request) {
-		cliRunner.setup(w, r, BASE_URL, BUCKET)
+	r.HandleFunc("/setup_general", func(w http.ResponseWriter, r *http.Request) {
+		cliRunner.setupGeneral(w, r)
+		json.NewEncoder(w).Encode("ok")
+	})
+	r.HandleFunc("/setup_storj", func(w http.ResponseWriter, r *http.Request) {
+		cliRunner.setupStorj(w, r)
 		json.NewEncoder(w).Encode(cliRunner.clientId)
 	})
 
 	r.HandleFunc("/start_workers", func(w http.ResponseWriter, r *http.Request) {
-		cliRunner.workerRunner(w, r, "start")
+		cliRunner.workerRunner(w, r, "start_workers")
 	})
 
 	r.HandleFunc("/stop_workers", func(w http.ResponseWriter, r *http.Request) {
-		cliRunner.workerRunner(w, r, "stop")
+		cliRunner.workerRunner(w, r, "stop_workers")
 	})
 
 	r.HandleFunc("/ini_upload", func(w http.ResponseWriter, r *http.Request) {
-		Uploader(w, r, BASE_URL, cliRunner.clientId)
+		Uploader(w, r, cliRunner.BaseUrl, cliRunner.clientId)
 	})
 
 	port := os.Getenv("PORT")

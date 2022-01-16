@@ -25,7 +25,7 @@ func ReadBody(structIn interface{}, w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("Error while reading request body")
 	}
-
+	r.Body.Close()
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	err = decoder.Decode(&structIn)
 

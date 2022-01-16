@@ -59,6 +59,26 @@
                     "mapped_name": "KAVAUSD"
                     }
             ]
+        },
+        {
+            "name": "algo",
+            "fiat": "usd",
+            "mapping": [
+                {
+                    "exchange":"kraken",
+                    "mapped_name": "ALGOUSD"
+                    }
+            ]
+        },
+        {
+            "name": "flow",
+            "fiat": "usd",
+            "mapping": [
+                {
+                    "exchange":"kraken",
+                    "mapped_name": "FLOWUSD"
+                    }
+            ]
         }
     ]
 
