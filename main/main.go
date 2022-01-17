@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/JimbiniBambini/exchanges_data_polling/config"
-	"github.com/JimbiniBambini/exchanges_data_polling/frontend"
 	"github.com/JimbiniBambini/exchanges_data_polling/managers/api_manager"
 	"github.com/JimbiniBambini/exchanges_data_polling/managers/client_manager"
 	"github.com/JimbiniBambini/exchanges_data_polling/pinger"
@@ -72,10 +71,10 @@ func main() {
 		pinger.IncomingMessageHandler(w, r)
 	})
 
-	r.HandleFunc("/client_status", func(w http.ResponseWriter, r *http.Request) {
-		// last files from each bucket bucket
-		frontend.Display(w, r, api_manager.StatusManager(w, r, &clientManager, os.Getenv("CLI_ID")))
-	})
+	// r.HandleFunc("/client_status", func(w http.ResponseWriter, r *http.Request) {
+	// 	// last files from each bucket bucket
+	// 	frontend.Display(w, r, api_manager.StatusManager(w, r, &clientManager, os.Getenv("CLI_ID")))
+	// })
 
 	if GIT_DEV {
 		// 	r.HandleFunc("/storj_client_ini_upload", func(w http.ResponseWriter, r *http.Request) {

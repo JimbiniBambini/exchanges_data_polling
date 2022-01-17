@@ -21,8 +21,9 @@ type TodoPageData struct {
 }
 
 func Display(w http.ResponseWriter, r *http.Request, dataResp api_manager.Responder) {
-	templatePath, _ := filepath.Abs("../frontend/layout.html")
+	templatePath, _ := filepath.Abs("frontend/layout.html")
 	log.Println(templatePath)
+
 	ex, err := os.Executable()
 	if err != nil {
 		panic(err)

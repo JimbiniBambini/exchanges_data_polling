@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -24,6 +25,7 @@ func NewExchangeConfig(exchangeName string) *ExchangeConfig {
 	var config ExchangeConfig
 	var confTmp map[string]ExchangeConfig
 	absPath, _ := filepath.Abs("config/config_exchanges.json")
+	log.Println(absPath)
 	file, _ := os.Open(absPath)
 	defer file.Close()
 
@@ -55,6 +57,7 @@ func GetAssetConfigMap() map[string]map[string]map[string]string {
 
 	var assetMappingConf AssetMapping
 	absPath, _ := filepath.Abs("config/config_asset_mapping.json")
+	log.Println(absPath)
 	file, _ := os.Open(absPath)
 	defer file.Close()
 
