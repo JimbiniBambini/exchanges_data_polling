@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"log"
 	"net/http"
 	"path/filepath"
 	"text/template"
@@ -20,6 +21,7 @@ type TodoPageData struct {
 
 func Display(w http.ResponseWriter, r *http.Request, dataResp api_manager.Responder) {
 	templatePath, _ := filepath.Abs("../frontend/layout.html")
+	log.Println(templatePath)
 	tmpl := template.Must(template.ParseFiles(templatePath))
 	tmpl.Execute(w, dataResp)
 }
