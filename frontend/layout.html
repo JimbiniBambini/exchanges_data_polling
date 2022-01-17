@@ -1,0 +1,14 @@
+<p>{{.ClientId}}</p>
+<ul>
+    {{range .BucketWorkers}}
+        <li><b>Bucket:</b> {{.BucketKey}}</li>
+        {{range $i, $worker := .Workers}}
+            <li>Worker: {{$worker.Worker.Asset}}/{{$worker.Worker.Fiat}}</li>
+            <li>Exchange: {{$worker.Worker.Exchange}}</li>
+            <li>Run: {{$worker.Worker.Run}}</li>
+            <li>File list: {{$worker.FileLst}}</li>
+        {{end}}
+    {{end}}
+</ul>
+
+

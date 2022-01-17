@@ -3,12 +3,12 @@ package main
 //module github.com/JimbiniBambini/exchanges_data_polling **latest**
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/JimbiniBambini/exchanges_data_polling/config"
+	"github.com/JimbiniBambini/exchanges_data_polling/frontend"
 	"github.com/JimbiniBambini/exchanges_data_polling/managers/api_manager"
 	"github.com/JimbiniBambini/exchanges_data_polling/managers/client_manager"
 	"github.com/JimbiniBambini/exchanges_data_polling/pinger"
@@ -73,11 +73,8 @@ func main() {
 	})
 
 	r.HandleFunc("/client_status", func(w http.ResponseWriter, r *http.Request) {
-		// client_id
-		// buckets
-		// workers
 		// last files from each bucket bucket
-		fmt.Fprint(w, api_manager.StatusManager(w, r, &clientManager))
+		frontend.Display(w, r, api_manager.StatusManager(w, r, &clientManager, os.Getenv("CLI_ID")))
 	})
 
 	if GIT_DEV {

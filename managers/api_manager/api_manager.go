@@ -370,15 +370,21 @@ type CommanderStatus struct {
 	Filters []string `json:"filters"`
 }
 
-type Responder struct {
-	ClientId        string   `json:"client_id"`
-	Buckets         []string `json:"buckets"`
-	Workers         []string `json:"workers"`
-	WorkerAssets    []string `json:"worker_assets"`
-	LastFilesBucket []string `json:"last_files_in_bucket"` // UPDATE!
+type ResponderAssetWorker struct {
+	Worker  workers.AssetWorker `json:"workers"`
+	FileLst []string            `json:"file_lst"`
+}
+type BucketWorker struct {
+	BucketKey string                 `json:"bucket_key"`
+	Workers   []ResponderAssetWorker `json:"asset_workers"`
 }
 
-func StatusManager(w http.ResponseWriter, r *http.Request, clientManager *client_manager.ClientManager) Responder {
+type Responder struct {
+	ClientId      string         `json:"client_id"`
+	BucketWorkers []BucketWorker `json:"bucket_workers"`
+}
+
+func StatusManager(w http.ResponseWriter, r *http.Request, clientManager *client_manager.ClientManager, clientId string) Responder {
 
 	var endpoint string = "storj_client_status_page"
 
@@ -388,27 +394,33 @@ func StatusManager(w http.ResponseWriter, r *http.Request, clientManager *client
 	ReadBody(&commandHandler, w, r)
 
 	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey)
+	if clientId != "" {
+		commandHandler.ClientId = clientId
+	}
 
 	if _, ok := clientManager.Clients[commandHandler.ClientId]; ok {
 		switch r.Method {
-		/* ********************* POST ********************* */
-		case http.MethodPost:
-			if commandHandler.Command == "get_client_status" {
-				responseHandler.ClientId = commandHandler.ClientId
-				for _, bucket := range clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets {
-					responseHandler.Buckets = append(responseHandler.Buckets, bucket.Key)
-				}
-			}
-			if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey]; ok {
-				for _, worker := range clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey] {
-					responseHandler.Workers = append(responseHandler.Workers, worker.ID)
-					responseHandler.WorkerAssets = append(responseHandler.WorkerAssets, worker.Asset+worker.Fiat)
-				}
-			}
 
-			if _, ok := clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey]; ok {
-				responseHandler.LastFilesBucket = clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].GetFilteredObjectList(commandHandler.Filters)
+		/* ********************* GET ********************* */
+		case http.MethodGet:
+			// if commandHandler.Command == "get_client_status" {
+
+			responseHandler.ClientId = commandHandler.ClientId
+			for _, bucket := range clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets {
+				var bucketWorkerTmp BucketWorker
+				bucketWorkerTmp.BucketKey = bucket.Key
+
+				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[bucket.Key]; ok {
+					for _, worker := range clientManager.Clients[commandHandler.ClientId].Workers[bucket.Key] {
+						var respWorkerTmp ResponderAssetWorker
+						respWorkerTmp.Worker = *worker
+						respWorkerTmp.FileLst = clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[bucket.Key].GetFilteredObjectList([]string{worker.Asset, worker.Fiat})
+						bucketWorkerTmp.Workers = append(bucketWorkerTmp.Workers, respWorkerTmp)
+					}
+				}
+				responseHandler.BucketWorkers = append(responseHandler.BucketWorkers, bucketWorkerTmp)
 			}
+			// }
 		}
 	}
 

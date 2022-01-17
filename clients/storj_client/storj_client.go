@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"strings"
 
 	"storj.io/uplink"
@@ -197,19 +196,21 @@ func (self Bucket) GetObjectList() []string {
 
 func (self Bucket) GetFilteredObjectList(filters []string) []string {
 	objLst := make([]string, 0)
+
 	for _, object := range self.Objects {
 		filtCnt := 0
 		for _, filt := range filters {
 
 			if strings.Contains(object.Key, filt) {
 				filtCnt += 1
-				log.Println(filt, object.Key, filtCnt)
+				//log.Println(filt, object.Key, filtCnt)
 			}
 		}
-		if filtCnt == len(filters) {
+
+		if filtCnt == len(filters) || len(filters) == 0 {
 			objLst = append(objLst, object.Key)
 		}
 	}
-
+	//log.Println(objLst)
 	return objLst
 }
