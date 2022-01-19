@@ -50,6 +50,7 @@ func (self *AssetWorker) Perform(waitTimeSec int, bucketKey string, storjClient 
 				var bytes2Upload []byte = nil
 
 				configExchange := config.NewExchangeConfig(self.Exchange)
+
 				if assetExchange, ok := assetMapping[self.Asset][self.Fiat][self.Exchange]; ok {
 					bytes2Upload = exchanges.GetExchangeDataCsvByte(assetExchange, *configExchange)
 				}

@@ -24,7 +24,7 @@ type ExchangeConfig struct {
 func NewExchangeConfig(exchangeName string) *ExchangeConfig {
 	var config ExchangeConfig
 	var confTmp map[string]ExchangeConfig
-	absPath, _ := filepath.Abs("config/config_exchanges.json")
+	absPath, _ := filepath.Abs(os.Getenv("EXCHANGE_CONFIG_PATH"))
 	log.Println(absPath)
 	file, _ := os.Open(absPath)
 	defer file.Close()
@@ -33,6 +33,7 @@ func NewExchangeConfig(exchangeName string) *ExchangeConfig {
 
 	json.Unmarshal(bytes, &confTmp)
 	config = confTmp[exchangeName]
+
 	return &config
 }
 
@@ -56,8 +57,7 @@ func GetAssetConfigMap() map[string]map[string]map[string]string {
 	assetMapFinal := make(map[string]map[string]map[string]string)
 
 	var assetMappingConf AssetMapping
-	absPath, _ := filepath.Abs("config/config_asset_mapping.json")
-	log.Println(absPath)
+	absPath, _ := filepath.Abs(os.Getenv("ASSET_CONFIG_PATH"))
 	file, _ := os.Open(absPath)
 	defer file.Close()
 

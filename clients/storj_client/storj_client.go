@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"strings"
 
 	"storj.io/uplink"
@@ -168,13 +169,14 @@ func (self Bucket) UploadObject(ctx context.Context, objBytes []byte, objUploadK
 func (self Bucket) DownloadObject(ctx context.Context, objUploadKey string, project *uplink.Project) ([]byte, bool) {
 	operationSuccess := true
 	receivedContents := make([]byte, 0)
+
 	download, err := project.DownloadObject(ctx, self.Key, objUploadKey, nil)
+
 	if err != nil {
-		fmt.Errorf("could not open object: %v", err)
+		log.Println("could not open object: %v", err)
 		operationSuccess = false
 	}
 
-	defer download.Close()
 	if operationSuccess {
 		// Read everything from the download stream
 		receivedContents, err = ioutil.ReadAll(download)

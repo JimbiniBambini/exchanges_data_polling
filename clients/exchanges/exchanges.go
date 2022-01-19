@@ -43,7 +43,21 @@ func exchangeResponseToCsv(data []byte, pair string, exchangeConfig config.Excha
 	exchangeDataSchemeExtractor := make(map[string]map[string][][]interface{})
 	json.Unmarshal(data, &exchangeDataSchemeExtractor)
 
+	// Start writing response into csv format
 	var strConcat string
+
+	// add header
+	for i := 0; i < len(exchangeConfig.DataScheme); i++ {
+		// log.Println(i, len(exchangeConfig.DataScheme))
+
+		strConcat += (exchangeConfig.DataScheme[i])
+		if i < (len(exchangeConfig.DataScheme) - 1) {
+			strConcat += ","
+		}
+	}
+	strConcat += "\n"
+
+	// add data
 	for _, valsOuter := range exchangeDataSchemeExtractor[exchangeConfig.DataKey][pair] {
 		for idx, valsInner := range valsOuter {
 			var s string
@@ -58,8 +72,6 @@ func exchangeResponseToCsv(data []byte, pair string, exchangeConfig config.Excha
 			case string:
 				s = valsInner.(string)
 			}
-
-			//fmt.Println(idx, s, len(valsOuter))
 			if idx < len(valsOuter)-1 {
 				strConcat += (s + ",")
 			} else {

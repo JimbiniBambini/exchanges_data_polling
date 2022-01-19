@@ -238,7 +238,10 @@ func ManageFiles(w http.ResponseWriter, r *http.Request, clientManager *client_m
 
 		}
 		if commandHandler.Command == "download_bucket_file" {
-			if data, success := clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].DownloadObject(ctx, commandHandler.FileKey, clientManager.Clients[commandHandler.ClientId].StorjClient.Project); success {
+
+			data, success := clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].DownloadObject(ctx, commandHandler.FileKey, clientManager.Clients[commandHandler.ClientId].StorjClient.Project)
+
+			if success {
 				exchanges.ConvertCsvBytes(data, commandHandler.DirDownload)
 				commandHandler.Response = string(data)
 			} else {
@@ -246,8 +249,18 @@ func ManageFiles(w http.ResponseWriter, r *http.Request, clientManager *client_m
 			}
 		}
 	}
+	if commandHandler.Command == "download_bucket_file" {
+		logResp := ""
+		if commandHandler.Response == operations["error"] {
+			logResp = operations["error"]
+		} else {
+			logResp = operations["success"]
+		}
+		log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", logResp)
+	} else {
+		log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", commandHandler.Response)
+	}
 
-	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "RESPONSE:", commandHandler.Response)
 	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 

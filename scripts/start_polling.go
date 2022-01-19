@@ -214,13 +214,14 @@ func (self *ClientRunner) workerRunner(w http.ResponseWriter, r *http.Request, r
 	}
 }
 
+type CommanderUploader struct {
+	api_manager.Commander
+	Worker          workers.AssetWorker `json:"worker"`
+	DirFolder       string              `json:"dir_folder"`
+	OsFileSeparator string              `json:"file_sep"`
+}
+
 func Uploader(w http.ResponseWriter, r *http.Request, baseUrl string, clientId string) {
-	type CommanderUploader struct {
-		api_manager.Commander
-		Worker          workers.AssetWorker `json:"worker"`
-		DirFolder       string              `json:"dir_folder"`
-		OsFileSeparator string              `json:"file_sep"`
-	}
 
 	api := "storj_file_manager"
 
@@ -292,7 +293,66 @@ func Uploader(w http.ResponseWriter, r *http.Request, baseUrl string, clientId s
 	json.NewEncoder(w).Encode(commandHandler.Response)
 }
 
+func Downloader(w http.ResponseWriter, r *http.Request, baseUrl string, clientId string) {
+	// bucket key, asset fiat exchange perood
+	api := "storj_file_manager"
+
+	var commandHandler CommanderUploader
+	api_manager.ReadBody(&commandHandler, w, r)
+
+	// define download handler and rebuild
+	var downloadHandler api_manager.CommanderFiles
+	downloadHandler.Command = commandHandler.Command
+	downloadHandler.ClientId = commandHandler.ClientId
+	downloadHandler.BucketKey = commandHandler.BucketKey
+
+	periodInt, _ := strconv.Atoi(commandHandler.Worker.Period)
+
+	// for {
+	// 	// get latest asset ID from download folder
+	files, err := ioutil.ReadDir(commandHandler.DirFolder)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fileLstTmp := make([]string, 0)
+	for _, file := range files {
+		if !file.IsDir() && strings.Contains(file.Name(), commandHandler.Worker.Asset) && strings.Contains(file.Name(), commandHandler.Worker.Fiat) && strings.Contains(file.Name(), "_period_"+commandHandler.Worker.Period+"_") {
+			fileLstTmp = append(fileLstTmp, file.Name())
+		}
+	}
+	_, fileIdLst := common.GetSortedFileNamesAndId(fileLstTmp)
+	errorFlag := false
+
+	var lastId int
+	if len(fileIdLst) != 0 {
+		lastId = fileIdLst[len(fileIdLst)-1]
+	} else {
+		// -1 because of downloading the next (+1) file id
+		lastId = -1
+	}
+	for {
+		if errorFlag {
+			break
+		} else {
+
+			// 	// get next matching ID from bucket and download on success
+			downloadHandler.FileKey = common.GenerateBucketObjectKey(commandHandler.Worker.Asset, commandHandler.Worker.Fiat, commandHandler.Worker.Exchange, periodInt, lastId+1)
+			downloadHandler.DirDownload = commandHandler.DirFolder + commandHandler.OsFileSeparator + downloadHandler.FileKey
+			json.Unmarshal(sendReq(baseUrl+api, downloadHandler, "GET"), &downloadHandler.Response)
+			lastId += 1
+			if downloadHandler.Response == "error" {
+				break
+			}
+		}
+	}
+	// }
+
+	json.NewEncoder(w).Encode(commandHandler.Response)
+}
+
 func main() {
+
+	log.Println("Starting application.")
 
 	var cliRunner ClientRunner
 	r := mux.NewRouter()
@@ -315,6 +375,10 @@ func main() {
 
 	r.HandleFunc("/ini_upload", func(w http.ResponseWriter, r *http.Request) {
 		Uploader(w, r, cliRunner.BaseUrl, cliRunner.clientId)
+	})
+
+	r.HandleFunc("/download_asset", func(w http.ResponseWriter, r *http.Request) {
+		Downloader(w, r, cliRunner.BaseUrl, cliRunner.clientId)
 	})
 
 	port := os.Getenv("PORT")
