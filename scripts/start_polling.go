@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/JimbiniBambini/exchanges_data_polling/common"
 	"github.com/JimbiniBambini/exchanges_data_polling/managers/api_manager"
@@ -199,6 +200,9 @@ func (self *ClientRunner) workerRunner(w http.ResponseWriter, r *http.Request, r
 			log.Println(workerId)
 			log.Println(reqHandler)
 			sendReq(self.BaseUrl+api, reqHandler, "POST")
+
+			log.Println("Switching to the next worker")
+			time.Sleep(10 * time.Second)
 		}
 
 	} else {
@@ -285,8 +289,9 @@ func Uploader(w http.ResponseWriter, r *http.Request, baseUrl string, clientId s
 			reqData.FileKey = common.GenerateBucketObjectKey(commandHandler.Worker.Asset, commandHandler.Worker.Fiat, commandHandler.Worker.Exchange, periodConv, idx)
 
 			reqData.Data = b
-			sendReq(baseUrl+api, reqData, "POST")
 
+			sendReq(baseUrl+api, reqData, "POST")
+			log.Println("Uploading file finished.")
 		}
 	}
 

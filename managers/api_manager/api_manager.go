@@ -314,6 +314,7 @@ func ManageWorkers(w http.ResponseWriter, r *http.Request, clientManager *client
 				if _, ok := clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID]; ok {
 					if commandHandler.Worker.Run && clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID].Run == false {
 						go func() {
+							log.Println("Starting routine for:", commandHandler.Worker.ID)
 							clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID].RunHandler(true)
 							clientManager.Clients[commandHandler.ClientId].Workers[commandHandler.BucketKey][commandHandler.Worker.ID].Perform(commandHandler.DataPollPeriodSec, commandHandler.BucketKey, clientManager.Clients[commandHandler.ClientId].StorjClient, assetMapping)
 							return
