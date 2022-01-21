@@ -17,3 +17,4 @@
 #OSX files
 *.DS_Store
 .DS_Store
+heroku_commands.txt
