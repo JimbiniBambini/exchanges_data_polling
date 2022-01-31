@@ -92,14 +92,23 @@ func getClientId(baseUrl string) string {
 	reqHandler.LoginData["satelite_key"] = ravSecretData[0]
 	reqHandler.LoginData["api_key"] = ravSecretData[1]
 	reqHandler.LoginData["root_phrase"] = ravSecretData[2]
+
+	log.Println("HERE1", reqHandler)
+
 	api := "storj_client_manager"
 
 	idGetter := sendReq(baseUrl+api, reqHandler, "POST")
+
+	log.Println("HERE2", idGetter)
+
 	strResp := extractBetweenQuotes(string(idGetter))
 	if strResp == "error" {
 		strResp = extractBetweenQuotes(string(sendReq(baseUrl+api, api_manager.Commander{Command: "list_clients"}, "GET")))
 	}
 
+	log.Println("HERE3", strResp)
+
+	log.Println()
 	return strResp
 }
 
@@ -152,7 +161,9 @@ func mainHerokuFkRoutine() {
 	}
 
 	log.Println(os.Getenv("SECRET_DATA"))
-	log.Println(strings.Split(os.Getenv("SECRET_DATA"), ","))
+	for key, val := range strings.Split(os.Getenv("SECRET_DATA"), ",") {
+		log.Println(key, val)
+	}
 	// storj client login
 	clientId := getClientId(baseUrl)
 

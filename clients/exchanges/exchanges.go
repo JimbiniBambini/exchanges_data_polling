@@ -33,7 +33,7 @@ func ConvertCsvBytes(data []byte, dir2write string) []string {
 		// write the whole body at once
 		err := ioutil.WriteFile(dir2write, data, 0644)
 		if err != nil {
-			panic(err)
+			log.Println(err)
 		}
 	}
 	return strings.Split(string(data), "\n")

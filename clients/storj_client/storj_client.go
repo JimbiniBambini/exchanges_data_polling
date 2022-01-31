@@ -64,7 +64,7 @@ func (self *StorjClient) accessProjectMUX(ctx context.Context) bool {
 	success := true
 	access, err := uplink.RequestAccessWithPassphrase(ctx, self.accessData.sateliteKey, self.accessData.apiKey, self.accessData.rootPhrase)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		success = false
 	}
 
@@ -173,7 +173,7 @@ func (self Bucket) DownloadObject(ctx context.Context, objUploadKey string, proj
 	download, err := project.DownloadObject(ctx, self.Key, objUploadKey, nil)
 
 	if err != nil {
-		log.Println("could not open object: %v", err)
+		fmt.Errorf("could not open object: %v", err)
 		operationSuccess = false
 	}
 

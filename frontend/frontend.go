@@ -26,7 +26,7 @@ func Display(w http.ResponseWriter, r *http.Request, dataResp api_manager.Respon
 
 	ex, err := os.Executable()
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 	exPath := filepath.Dir(ex)
 	log.Println(exPath)
