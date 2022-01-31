@@ -184,7 +184,7 @@ func PingWorker(urls []string, timerMinCnt int) {
 			time.Sleep(time.Duration(10) * time.Second)
 			for {
 				//OutgoingMessageHandler(urlIn)
-				// mainHerokuFkRoutine()
+				mainHerokuFkRoutine()
 				time.Sleep(time.Duration(timerMinCnt) * time.Minute)
 			}
 		}(url)
