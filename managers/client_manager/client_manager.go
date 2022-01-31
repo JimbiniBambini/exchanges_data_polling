@@ -3,6 +3,7 @@ package client_manager
 import (
 	"context"
 	"encoding/json"
+	"log"
 
 	"github.com/JimbiniBambini/exchanges_data_polling/clients/storj_client"
 	"github.com/JimbiniBambini/exchanges_data_polling/common"
@@ -27,6 +28,9 @@ func NewClientManager() ClientManager {
 }
 
 func (clientManager *ClientManager) LoginHandler(loginCredentials map[string]string) string {
+
+	log.Println("HERERERE2", loginCredentials)
+
 	success := "error"
 	mapBytes, _ := json.Marshal(loginCredentials)
 	newID := common.CalcRequestBodyCheckSum(mapBytes)

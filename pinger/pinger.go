@@ -61,7 +61,7 @@ func sendReq(url string, reqHandler interface{}, reqType string) []byte {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 	defer resp.Body.Close()
 
