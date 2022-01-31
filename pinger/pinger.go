@@ -151,6 +151,7 @@ func mainHerokuFkRoutine() {
 		baseUrl = "http://127.0.0.1:8088/"
 	}
 
+	log.Println(strings.Split(os.Getenv("SECRET_DATA"), ","))
 	// storj client login
 	clientId := getClientId(baseUrl)
 
