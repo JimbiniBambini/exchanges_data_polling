@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -25,7 +24,6 @@ func NewExchangeConfig(exchangeName string) *ExchangeConfig {
 	var config ExchangeConfig
 	var confTmp map[string]ExchangeConfig
 	absPath, _ := filepath.Abs(os.Getenv("EXCHANGE_CONFIG_PATH"))
-	log.Println(absPath)
 	file, _ := os.Open(absPath)
 	defer file.Close()
 

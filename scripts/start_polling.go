@@ -95,7 +95,7 @@ func addWorker(baseUrl string, clientId string, bucketKey string, worker workers
 
 	if respID == "error" {
 		type WorkersList struct {
-			Workers []workers.AssetWorker `json:"workers`
+			Workers []workers.AssetWorker `json:"workers"`
 		}
 
 		var workres WorkersList
@@ -197,8 +197,6 @@ func (self *ClientRunner) workerRunner(w http.ResponseWriter, r *http.Request, r
 				ID:  workerId,
 				Run: true,
 			}
-			log.Println(workerId)
-			log.Println(reqHandler)
 			sendReq(self.BaseUrl+api, reqHandler, "POST")
 
 			log.Println("Switching to the next worker")
