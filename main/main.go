@@ -41,12 +41,14 @@ var GIT_DEV bool
 /* ****************************************** MAIN ****************************************** */
 func main() {
 
-	log.Println("Starting application.")
-
 	GIT_DEV = (os.Getenv("GIT_DEV") == "true")
 
+	log.Println("Following Environment Variables were set:")
 	log.Println("GIT_DEV:", GIT_DEV)
 	log.Println("EXCHANGE_CONFIG_PATH:", os.Getenv("EXCHANGE_CONFIG_PATH"))
+	log.Println("ASSET_CONFIG_PATH:", os.Getenv("ASSET_CONFIG_PATH"))
+
+	log.Println("Starting application.")
 
 	clientManager := client_manager.NewClientManager()
 
