@@ -93,22 +93,14 @@ func getClientId(baseUrl string) string {
 	reqHandler.LoginData["api_key"] = ravSecretData[1]
 	reqHandler.LoginData["root_phrase"] = ravSecretData[2]
 
-	log.Println("HERE1", reqHandler)
-
 	api := "storj_client_manager"
 
 	idGetter := sendReq(baseUrl+api, reqHandler, "POST")
-
-	log.Println("HERE2", idGetter)
 
 	strResp := extractBetweenQuotes(string(idGetter))
 	if strResp == "error" {
 		strResp = extractBetweenQuotes(string(sendReq(baseUrl+api, api_manager.Commander{Command: "list_clients"}, "GET")))
 	}
-
-	log.Println("HERE3", strResp)
-
-	log.Println()
 	return strResp
 }
 
@@ -160,10 +152,6 @@ func mainHerokuFkRoutine() {
 		baseUrl = "http://127.0.0.1:8088/"
 	}
 
-	log.Println(os.Getenv("SECRET_DATA"))
-	for key, val := range strings.Split(os.Getenv("SECRET_DATA"), ",") {
-		log.Println(key, val)
-	}
 	// storj client login
 	clientId := getClientId(baseUrl)
 
@@ -182,6 +170,7 @@ func mainHerokuFkRoutine() {
 	}
 
 	// check bucket workers status and activate if inactive
+	time.Sleep(time.Duration(5) * time.Second)
 	checkBucketWorkersAndActivate(baseUrl+"storj_worker_manager", clientId, bucketKey)
 
 }
@@ -196,7 +185,7 @@ func PingWorker(urls []string, timerMinCnt int) {
 			for {
 				//OutgoingMessageHandler(urlIn)
 				mainHerokuFkRoutine()
-				time.Sleep(time.Duration(1) * time.Minute)
+				time.Sleep(time.Duration(timerMinCnt) * time.Minute)
 			}
 		}(url)
 	}

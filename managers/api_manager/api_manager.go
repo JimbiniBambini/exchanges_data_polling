@@ -56,8 +56,6 @@ func ManageClients(w http.ResponseWriter, r *http.Request, clientManager *client
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	err = decoder.Decode(&commandHandler)
 
-	log.Println("HERERERE1", commandHandler)
-
 	log.Println("ENDPOINT:", endpoint, "COMMAND:", commandHandler.Command, "CLIENT_ID:", commandHandler.ClientId, "BUCKET_Key", commandHandler.BucketKey)
 
 	switch r.Method {
