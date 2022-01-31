@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JimbiniBambini/exchanges_data_polling/config"
 	"github.com/JimbiniBambini/exchanges_data_polling/managers/api_manager"
 	"github.com/JimbiniBambini/exchanges_data_polling/workers"
 )
@@ -120,9 +119,9 @@ func checkBucketWorkersAndActivate(baseUrl string, clientId string, bucketKey st
 	var reqHandler api_manager.CommanderWorker
 	reqHandler.ClientId = clientId
 	if os.Getenv("GIT_DEV") == "true" {
-		reqHandler.DataPollPeriodSec = 60
+		reqHandler.DataPollPeriodSec = 180
 	} else {
-		reqHandler.DataPollPeriodSec = 16200
+		reqHandler.DataPollPeriodSec = 18000
 	}
 	reqHandler.BucketKey = bucketKey
 	type WorkersList struct {
@@ -157,20 +156,13 @@ func mainHerokuFkRoutine() {
 
 	// configure al assets and exchanges and BUCKETS
 	bucketKey := strings.Split(os.Getenv("SECRET_DATA"), ",")[3]
-	assetMapping := config.GetAssetConfigMap()
-
-	fiat := "usd"
-	period := "1"
 
 	// add all workers
-	for asset, exchangeMap := range assetMapping {
-		for exchange := range exchangeMap {
-			addWorker(baseUrl+"storj_worker_manager", clientId, bucketKey, workers.AssetWorker{Asset: asset, Fiat: fiat, Exchange: exchange, Period: period})
-		}
-	}
+
+	addWorker(baseUrl+"storj_worker_manager", clientId, bucketKey, workers.AssetWorker{ID: "universal_worker", Exchange: "kraken"})
 
 	// check bucket workers status and activate if inactive
-	time.Sleep(time.Duration(5) * time.Second)
+	// time.Sleep(time.Duration(5) * time.Second)
 	checkBucketWorkersAndActivate(baseUrl+"storj_worker_manager", clientId, bucketKey)
 
 }
@@ -181,7 +173,7 @@ func PingWorker(urls []string, timerMinCnt int) {
 	for _, url := range urls {
 		go func(urlIn string) {
 			// Wait for server to start
-			time.Sleep(time.Duration(10) * time.Second)
+			time.Sleep(time.Duration(1) * time.Second)
 			for {
 				//OutgoingMessageHandler(urlIn)
 				mainHerokuFkRoutine()
