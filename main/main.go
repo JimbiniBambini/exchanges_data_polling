@@ -72,10 +72,10 @@ func main() {
 		api_manager.ManageWorkers(w, r, &clientManager, assetMapping)
 	})
 
-	r.HandleFunc("/ping_in", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("incoming message", w)
-		pinger.IncomingMessageHandler(w, r)
-	})
+	// r.HandleFunc("/ping_in", func(w http.ResponseWriter, r *http.Request) {
+	// 	log.Println("incoming message", w)
+	// 	pinger.IncomingMessageHandler(w, r)
+	// })
 
 	// r.HandleFunc("/client_status", func(w http.ResponseWriter, r *http.Request) {
 	// 	// last files from each bucket bucket
