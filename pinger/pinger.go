@@ -161,9 +161,7 @@ func mainHerokuFkRoutine() {
 
 	addWorker(baseUrl+"storj_worker_manager", clientId, bucketKey, workers.AssetWorker{ID: "universal_worker", Exchange: "kraken"})
 
-	// check bucket workers status and activate if inactive
-	// time.Sleep(time.Duration(5) * time.Second)
-	checkBucketWorkersAndActivate(baseUrl+"storj_worker_manager", clientId, bucketKey)
+	//	checkBucketWorkersAndActivate(baseUrl+"storj_worker_manager", clientId, bucketKey)
 
 }
 
@@ -176,7 +174,7 @@ func PingWorker(urls []string, timerMinCnt int) {
 			time.Sleep(time.Duration(1) * time.Second)
 			for {
 				//OutgoingMessageHandler(urlIn)
-				mainHerokuFkRoutine()
+				//mainHerokuFkRoutine()
 				time.Sleep(time.Duration(timerMinCnt) * time.Minute)
 			}
 		}(url)

@@ -288,8 +288,14 @@ func Uploader(w http.ResponseWriter, r *http.Request, baseUrl string, clientId s
 
 			reqData.Data = b
 
-			sendReq(baseUrl+api, reqData, "POST")
-			log.Println("Uploading file finished.")
+			if string(sendReq(baseUrl+api, reqData, "POST")) == "error" {
+				commandHandler.Response = "error"
+				break
+			} else {
+				log.Println("Uploading file finished.")
+				time.Sleep(time.Duration(1) * time.Second)
+			}
+
 		}
 	}
 

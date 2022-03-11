@@ -189,6 +189,7 @@ type CommanderFiles struct {
 	FileKey     string `json:"file_key"`
 	Data        []byte `json:"data"`
 	DirDownload string `json:"dir_download"`
+	DirUpload   string `json:"dir_upload"`
 	Separator   string `json:"file_sep"`
 }
 
@@ -216,11 +217,30 @@ func ManageFiles(w http.ResponseWriter, r *http.Request, clientManager *client_m
 	/* ********************* POST ********************* */
 	case http.MethodPost:
 		if commandHandler.Command == "add_bucket_file" {
-			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
+			// clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
 			if clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].UploadObject(ctx, commandHandler.Data, commandHandler.FileKey, clientManager.Clients[commandHandler.ClientId].StorjClient.Project) {
 				commandHandler.Response = operations["success"]
 			} else {
 				commandHandler.Response = operations["error"]
+			}
+		}
+
+		if commandHandler.Command == "add_bucket_file_directory" {
+			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
+			b, err := ioutil.ReadFile(commandHandler.DirUpload + commandHandler.Separator + commandHandler.FileKey)
+			if err != nil {
+				log.Print(err)
+				commandHandler.Response = operations["error"]
+			}
+
+			if commandHandler.Response != operations["error"] {
+
+				commandHandler.Data = b
+				if clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].UploadObject(ctx, commandHandler.Data, commandHandler.FileKey, clientManager.Clients[commandHandler.ClientId].StorjClient.Project) {
+					commandHandler.Response = operations["success"]
+				} else {
+					commandHandler.Response = operations["error"]
+				}
 			}
 		}
 		/* ********************* DELETE ********************* */
@@ -238,7 +258,7 @@ func ManageFiles(w http.ResponseWriter, r *http.Request, clientManager *client_m
 
 		}
 		if commandHandler.Command == "download_bucket_file" {
-
+			clientManager.Clients[commandHandler.ClientId].StorjClient.UpdateClient(ctx)
 			data, success := clientManager.Clients[commandHandler.ClientId].StorjClient.Buckets[commandHandler.BucketKey].DownloadObject(ctx, commandHandler.FileKey, clientManager.Clients[commandHandler.ClientId].StorjClient.Project)
 
 			if success {

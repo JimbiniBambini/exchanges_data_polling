@@ -144,7 +144,7 @@ func (self Bucket) UploadObject(ctx context.Context, objBytes []byte, objUploadK
 	operationSuccess := true
 	upload, err := project.UploadObject(ctx, self.Key, objUploadKey, nil)
 	if err != nil {
-		fmt.Errorf("could not initiate upload: %v", err)
+		log.Println("could not initiate upload:", err)
 		operationSuccess = false
 	}
 
@@ -152,14 +152,14 @@ func (self Bucket) UploadObject(ctx context.Context, objBytes []byte, objUploadK
 	_, err = io.Copy(upload, buf)
 	if err != nil {
 		_ = upload.Abort()
-		fmt.Errorf("could not upload data: %v", err)
+		log.Println("could not upload data:", err)
 		operationSuccess = false
 	}
 
 	// Commit the uploaded object.
 	err = upload.Commit()
 	if err != nil {
-		fmt.Errorf("could not commit uploaded object: %v", err)
+		log.Println("could not commit uploaded object:", err)
 		operationSuccess = false
 	}
 
@@ -173,17 +173,20 @@ func (self Bucket) DownloadObject(ctx context.Context, objUploadKey string, proj
 	download, err := project.DownloadObject(ctx, self.Key, objUploadKey, nil)
 
 	if err != nil {
-		fmt.Errorf("could not open object: %v", err)
+		log.Println("could not open object:", err)
 		operationSuccess = false
 	}
+
+	defer download.Close()
 
 	if operationSuccess {
 		// Read everything from the download stream
 		receivedContents, err = ioutil.ReadAll(download)
 		if err != nil {
-			fmt.Errorf("could not read data: %v", err)
+			log.Println("could not read data:", err)
 			operationSuccess = false
 		}
+
 	}
 	return receivedContents, operationSuccess
 }
