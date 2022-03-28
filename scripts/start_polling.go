@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -319,10 +320,25 @@ func Downloader(w http.ResponseWriter, r *http.Request, baseUrl string, clientId
 
 	// for {
 	// 	// get latest asset ID from download folder
-	files, err := ioutil.ReadDir(commandHandler.DirFolder)
+
+	var dirFinal string = commandHandler.DirFolder + "/" + commandHandler.Worker.Asset + "/" + commandHandler.Worker.Exchange
+
+	fmt.Println(commandHandler.DirFolder)
+	fmt.Println()
+
+	if _, err := os.Stat(dirFinal); err != nil {
+		if os.IsNotExist(err) {
+			err := os.MkdirAll(dirFinal, os.ModePerm)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+	files, err := ioutil.ReadDir(dirFinal)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	fileLstTmp := make([]string, 0)
 	for _, file := range files {
 		if !file.IsDir() && strings.Contains(file.Name(), commandHandler.Worker.Asset) && strings.Contains(file.Name(), commandHandler.Worker.Fiat) && strings.Contains(file.Name(), "_period_"+commandHandler.Worker.Period+"_") {
@@ -346,7 +362,7 @@ func Downloader(w http.ResponseWriter, r *http.Request, baseUrl string, clientId
 
 			// 	// get next matching ID from bucket and download on success
 			downloadHandler.FileKey = common.GenerateBucketObjectKey(commandHandler.Worker.Asset, commandHandler.Worker.Fiat, commandHandler.Worker.Exchange, periodInt, lastId+1)
-			downloadHandler.DirDownload = commandHandler.DirFolder + commandHandler.OsFileSeparator + downloadHandler.FileKey
+			downloadHandler.DirDownload = dirFinal + commandHandler.OsFileSeparator + downloadHandler.FileKey
 			json.Unmarshal(sendReq(baseUrl+api, downloadHandler, "GET"), &downloadHandler.Response)
 			lastId += 1
 			if downloadHandler.Response == "error" {
